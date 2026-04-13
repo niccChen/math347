@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+data/
+figures/**/*.png
+figures/**/*.pdf
+figures/**/*.csv
+results/**/*.csv
+results/**/*.json
