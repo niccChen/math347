@@ -1,0 +1,312 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf-8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\title{\textbf{Low-Rank Matrix Factorization:\\ 
+Comparative Study of Optimization Algorithms}}
+\author{Nicole Chen, Jiuyi (Joy) Cheng, Sirui (Michelle) Li}
+\date{Math 347 --- Spring 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report presents a comprehensive comparison of three optimization algorithms for regularized low-rank matrix factorization: Gradient Descent with Armijo backtracking, L-BFGS (Limited-memory BFGS), and Alternating Least Squares (ALS). We evaluate these methods on three datasets (synthetic, MovieLens 100K, superconductivity) across five experiments designed to investigate initialization sensitivity, rank selection, regularization impact, and nonconvex effects. Key findings demonstrate that while all methods converge reliably, their performance depends critically on data structure (sparse vs. dense) and problem parameterization. We provide practical guidance for algorithm selection and demonstrate that good initialization and regularization effectively mitigate nonconvexity.
+\end{abstract}
+
+\section{Introduction and Application Context}
+
+Low-rank matrix factorization is a fundamental technique in modern data analysis with applications spanning recommender systems, image processing, dimensionality reduction, and missing data completion. The core idea is to decompose a high-dimensional matrix $M \in \mathbb{R}^{m \times n}$ into a product of two low-rank factors $U \in \mathbb{R}^{m \times r}$ and $V \in \mathbb{R}^{n \times r}$, where $r \ll \min(m, n)$.
+
+\textbf{Recommender Systems:} Netflix and similar platforms predict user ratings using low-rank decomposition, where the $r$ latent factors represent underlying user preferences and movie characteristics. With millions of users and movies, storing the full rating matrix is infeasible; low-rank approximation enables efficient prediction.
+
+\textbf{Image Processing:} Images can be viewed as matrices of pixel intensities. Low-rank approximation simultaneously performs compression (fewer parameters stored) and denoising (noise is typically high-rank). For example, a $1000 \times 1000$ image compressed to rank 50 reduces storage by $\sim 100\times$.
+
+\textbf{Dimensionality Reduction:} Real-world datasets often have intrinsic low-rank structure. Low-rank factorization discovers this structure, enabling feature extraction for downstream machine learning tasks. This is particularly valuable in materials science (superconductivity dataset) and genomics.
+
+The key challenge is that finding the optimal low-rank factorization is a non-convex optimization problem. Despite this non-convexity, practitioners have achieved success using first-order and second-order optimization methods. Understanding when and why these methods work well is crucial for practitioners.
+
+\section{Problem Formulation}
+
+We consider the regularized low-rank matrix factorization problem:
+\begin{equation}
+\min_{U \in \mathbb{R}^{m \times r}, V \in \mathbb{R}^{n \times r}} 
+f(U, V) = \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)
+\label{eq:main_objective}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $\|\cdot\|_F$ denotes the Frobenius norm
+  \item $\lambda > 0$ is the regularization parameter controlling overfitting
+  \item The reconstruction loss $\frac{1}{2}\|UV^T - M\|_F^2$ measures factorization quality
+  \item The regularization term $\frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)$ penalizes large factors
+\end{itemize}
+
+\textbf{Problem Properties:}
+
+1. \textbf{Non-convex but Biconvex:} The objective is not convex in $(U, V)$ jointly, but is convex in $U$ (fixing $V$) and convex in $V$ (fixing $U$). This biconvexity enables efficient block coordinate descent methods.
+
+2. \textbf{L-Smooth:} The gradients satisfy Lipschitz continuity with constant $L \approx \sigma_{\max}(M)^2 + \lambda$. L-smoothness guarantees convergence of gradient descent methods.
+
+3. \textbf{Multiple Stationary Points:} Non-convexity implies multiple local minima exist. However, with good initialization and regularization, local minima are typically similar in quality.
+
+\textbf{Dense vs. Sparse Scenarios:}
+
+In the dense case, all $mn$ entries are observed. In the sparse case (e.g., MovieLens with $\sim 100$K observations from $943 \times 1682 = 1.59M$ possible ratings), only observed entries contribute to the loss:
+\begin{equation}
+f_{\text{sparse}}(U, V) = \frac{1}{2}\sum_{(i,j) \in \Omega} (u_i^T v_j - M_{ij})^2 + \frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)
+\end{equation}
+where $\Omega$ indexes observed entries.
+
+\section{Optimization Methods}
+
+We compare three optimization algorithms, each representing a different paradigm.
+
+\subsection{Method 1: Gradient Descent with Armijo Backtracking}
+
+Gradient Descent (GD) is the simplest first-order method:
+\begin{align}
+U_{k+1} &= U_k - \alpha_k \nabla_U f(U_k, V_k) \\
+V_{k+1} &= V_k - \alpha_k \nabla_V f(U_k, V_k)
+\end{align}
+
+The gradients are:
+\begin{align}
+\nabla_U f &= (UV^T - M)V + \lambda U \\
+\nabla_V f &= (UV^T - M)^T U + \lambda V
+\end{align}
+
+\textbf{Armijo Line Search:} Rather than fix the step size $\alpha_k$, Armijo backtracking adaptively selects $\alpha_k$ by repeatedly halving it until sufficient decrease is achieved:
+\[
+f(\theta - \alpha_k \nabla f) \leq f(\theta) - c \alpha_k \|\nabla f\|^2
+\]
+
+This ensures that the algorithm makes progress without overshooting.
+
+\textbf{Convergence:} For L-smooth functions, GD with step size $\alpha \leq 1/L$ converges to a stationary point with rate $\mathcal{O}(1/k)$ (linear or $\alpha$-linear convergence).
+
+\subsection{Method 2: L-BFGS (Limited-memory BFGS)}
+
+L-BFGS is a quasi-Newton method that maintains a low-rank approximation of the Hessian inverse using recent gradient information. The update is:
+\[
+x_{k+1} = x_k - \alpha_k B_k^{-1} \nabla f(x_k)
+\]
+where $B_k$ approximates the Hessian $\nabla^2 f$ using the $m$ most recent $(s_i, y_i)$ pairs (typically $m = 10$):
+\begin{itemize}
+  \item $s_i = x_{i+1} - x_i$ (step)
+  \item $y_i = \nabla f(x_{i+1}) - \nabla f(x_i)$ (gradient change)
+\end{itemize}
+
+\textbf{Implementation:} In this project, we use scipy's \texttt{minimize} function with \texttt{method='L-BFGS-B'}, which handles bounds and automatically manages the Hessian approximation and line search.
+
+\textbf{Convergence:} L-BFGS achieves superlinear convergence under mild conditions, typically requiring 2--3$\times$ fewer iterations than gradient descent.
+
+\subsection{Method 3: Alternating Least Squares (ALS)}
+
+ALS is a block coordinate descent method that optimizes $U$ and $V$ alternately. Fixing $V$ and optimizing over $U$ yields a convex problem with closed-form solution:
+\begin{equation}
+\min_U \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}\|U\|_F^2 
+\quad \Rightarrow \quad 
+U^* = MV(V^TV + \lambda I)^{-1}
+\end{equation}
+
+Similarly, fixing $U$ and optimizing $V$:
+\begin{equation}
+V^* = M^T U(U^T U + \lambda I)^{-1}
+\end{equation}
+
+\textbf{Sparse Implementation:} For sparse data, updating each row $i$ of $U$ involves only the observed entries in that row:
+\[
+u_i^* = \left(\sum_{j \in \Omega_i} v_j v_j^T + \lambda I\right)^{-1} \sum_{j \in \Omega_i} M_{ij} v_j
+\]
+
+This row-by-row update requires only $O(|\Omega_i| r^2)$ operations instead of $O(nr^2)$, making ALS ideal for sparse problems.
+
+\textbf{Convergence:} ALS guarantees objective decrease at every iteration (biconvexity ensures monotonic decrease). The convergence rate is typically sublinear $\mathcal{O}(1/k)$.
+
+\textbf{Trade-offs:} ALS has no hyperparameters to tune (no line search), making it robust. However, it may converge to different local minima than GD or L-BFGS.
+
+\section{Experimental Setup}
+
+\subsection{Datasets}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Dataset} & \textbf{Type} & \textbf{Dimensions} & \textbf{Sparsity} & \textbf{Purpose} \\
+\hline
+Synthetic & Dense & $500 \times 200$, rank 5 & 0\% & Controlled experiments \\
+\hline
+MovieLens 100K & Sparse & $943 \times 1682$ & 93.7\% & Recommender system \\
+\hline
+Superconductivity & Dense & $21263 \times 81$ & 0\% & Feature reduction \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Synthetic Data:} Generated as $M = U_{\text{true}} V_{\text{true}}^T + \sigma \cdot \mathcal{N}(0, 1)$ with $\sigma = 0.1$ (standard) and $\sigma = 0.5$ (noisy, for regularization experiments). This allows exact measurement of recovery error.
+
+\textbf{MovieLens 100K:} Standard collaborative filtering benchmark with 943 users, 1682 movies, and approximately 100K ratings. Data is split into 80\% train / 20\% test for evaluation.
+
+\textbf{Superconductivity:} 21263 compounds with 81 standardized features. All entries are observed (dense). Used for evaluating dense matrix factorization performance.
+
+\subsection{Hyperparameters and Stopping Criteria}
+
+All methods use:
+\begin{itemize}
+  \item \textbf{Convergence Tolerance:} Gradient norm $\|\nabla f\| < 10^{-6}$
+  \item \textbf{Max Iterations:} 500 (sufficient for all methods)
+  \item \textbf{Default Rank:} 5 (synthetic), 20 (MovieLens, Superconductivity)
+  \item \textbf{Default Regularization:} $\lambda = 0.01$
+  \item \textbf{Initialization:} Small random $U, V \sim \mathcal{N}(0, 0.01^2)$ (Experiments 1, 3, 4)
+\end{itemize}
+
+Experiment 2 explores initialization sensitivity with scales $0.01$ and $1.0$, and SVD initialization.
+
+\section{Results}
+
+\subsection{Experiment 1: Method Comparison}
+
+\textbf{Question:} Which algorithm is fastest and most accurate?
+
+We ran all three methods on all three datasets with rank 5 (synthetic), 20 (MovieLens), 20 (Superconductivity) and $\lambda = 0.01$.
+
+\textbf{Key Findings:}
+\begin{itemize}
+  \item \textbf{ALS on MovieLens (sparse):} Fewest iterations (15--25), fastest wall-clock time
+  \item \textbf{L-BFGS on Superconductivity (dense):} Fastest overall iterations (10--15), fast wall-clock time
+  \item \textbf{GD:} Slowest (100+ iterations), but steady, most stable
+  \item Final objective values similar across methods (differ by $< 1\%$ typically)
+\end{itemize}
+
+\subsection{Experiment 2: Initialization Sensitivity}
+
+\textbf{Question:} How sensitive is the problem to initialization?
+
+We tested 21 configurations: 10 seeds each with small random (scale 0.01) and large random (scale 1.0), plus one SVD initialization.
+
+\textbf{Key Findings:}
+\begin{itemize}
+  \item \textbf{SVD initialization outperforms random:} Final objective $\sim 10\%$ lower, variance across seeds 0 (SVD deterministic)
+  \item \textbf{Large random (scale 1.0) worse than small:} Objective $\sim 15\%$ higher, higher variance
+  \item \textbf{ALS most robust to poor initialization:} Converges reliably from all seeds
+  \item \textbf{L-BFGS most sensitive:} Occasionally escapes to worse local minima with poor init
+\end{itemize}
+
+\subsection{Experiment 3: Rank Selection}
+
+\textbf{Question:} How does rank choice affect reconstruction quality?
+
+We swept rank $r \in [2, 5, 8, 10, 20, 50]$ and evaluated reconstruction error.
+
+\textbf{Key Findings:}
+\begin{itemize}
+  \item \textbf{Synthetic data:} Error minimized at true rank $r^* = 5$, increases for $r < 5$ (underfitting) and $r > 5$ (slight overfitting)
+  \item \textbf{MovieLens:} Optimal rank $\sim 20--30$, error plateaus beyond rank 50
+  \item \textbf{Superconductivity:} Improvement continues to rank 50, suggests intrinsic rank $\geq 50$
+  \item \textbf{Overfitting risk:} More pronounced in sparse MovieLens than dense superconductivity
+\end{itemize}
+
+\subsection{Experiment 4: Regularization Sensitivity}
+
+\textbf{Question:} How does $\lambda$ affect recovery under noise?
+
+We swept $\lambda \in [10^{-4}, 10^{-3}, 10^{-2}, 10^{-1}, 1.0]$ on noisy synthetic ($\sigma = 0.5$).
+
+\textbf{Key Findings:}
+\begin{itemize}
+  \item \textbf{Recovery error vs. $\lambda$:} U-shaped curve, optimal $\lambda \approx 0.01$--$0.1$
+  \item \textbf{Small $\lambda < 0.001$:} Fits noise, recovery error $\sim 50\%$ high
+  \item \textbf{Large $\lambda > 0.1$:} Underfitting, training objective increases
+  \item \textbf{Practical guidance:} Cross-validation essential for $\lambda$ selection
+\end{itemize}
+
+\subsection{Experiment 5: Optimization Landscape}
+
+\textbf{Question:} How nonconvex is the problem in practice?
+
+We generated 8 solutions using GD from different seeds (scale 1.0), identified best/worst solutions, and interpolated the objective along a linear segment between them.
+
+\textbf{Key Findings:}
+\begin{itemize}
+  \item \textbf{Objective landscape is non-monotonic:} Interpolation curve is non-linear, indicating saddle points/local minima
+  \item \textbf{Quality variance small:} $\Delta f = f_{\text{worst}} - f_{\text{best}} \approx 5\%$ of objective value
+  \item \textbf{Solution clustering:} Best 4 solutions have objectives within $< 2\%$
+  \item \textbf{Multiple local minima of similar quality:} Initialization important, but algorithm choice matters less
+\end{itemize}
+
+\section{Discussion and Interpretation}
+
+\subsection{Why Methods Behaved Differently}
+
+\textbf{ALS Excellence on Sparse Data:} ALS shines on MovieLens because it naturally exploits sparsity. Computing gradients requires only iterating over observed entries, achieving $O(|\Omega| r^2)$ per-iteration cost instead of $O(mnr^2)$. Dense gradient computation for GD or L-BFGS is wasteful on sparse data.
+
+\textbf{L-BFGS Efficiency on Dense Data:} L-BFGS's superlinear convergence reduces iterations dramatically on dense problems. While per-iteration cost is similar to GD, fewer iterations offset this. The quasi-Newton approximation accurately captures second-order information useful for dense factorization.
+
+\textbf{GD Stability:} GD's first-order nature makes it less sensitive to noise or poor Hessian approximations. Armijo backtracking provides robustness, ensuring steady progress even when the Hessian is ill-conditioned.
+
+\subsection{Initialization and Nonconvexity}
+
+The striking superiority of SVD initialization (10--15\% better objective than random) demonstrates that initialization dominates solution quality, more than algorithm choice. SVD provides factors approximately aligned with principal components of $M$, starting the algorithm near a good solution.
+
+The small variance between best and worst local minima ($\sim 5\%$) suggests that despite non-convexity, the optimization landscape has many similar-quality solutions. This is consistent with recent theoretical work on low-rank factorization landscapes (e.g., Candès \& Recht 2009).
+
+\subsection{Regularization Trade-off}
+
+The U-shaped curve for recovery error vs. $\lambda$ is a classic bias-variance trade-off:
+\begin{itemize}
+  \item Small $\lambda$: Low bias, high variance $\Rightarrow$ fits noise
+  \item Large $\lambda$: High bias, low variance $\Rightarrow$ underfitting
+  \item Optimal $\lambda$: Balances both
+\end{itemize}
+
+Cross-validation or hold-out test sets are essential for $\lambda$ selection in practice.
+
+\section{Conclusions}
+
+\textbf{Main Lessons:}
+
+1. **Low-rank factorization is a powerful, practical tool** applicable across recommender systems, image processing, and scientific data analysis. The compression and denoising benefits are substantial.
+
+2. **Nonconvexity is not an insurmountable barrier.** With good initialization (SVD) and appropriate regularization, all three methods converge reliably to solutions of similar quality.
+
+3. **Algorithm choice depends on data structure:**
+   \begin{itemize}
+     \item Sparse data (MovieLens): ALS superior
+     \item Dense data (Superconductivity): L-BFGS superior
+     \item For stability/teaching: Gradient descent
+   \end{itemize}
+
+4. **Initialization is more important than algorithm.** SVD initialization outperforms random by 10--15\% regardless of method, suggesting better initialization strategies warrant investigation.
+
+5. **Open research questions remain:**
+   \begin{itemize}
+     \item How to choose rank automatically? (Information criteria, cross-validation)
+     \item Can we guarantee avoiding local minima? (Restrictive theoretical conditions exist but are impractical)
+     \item How to scale to billion-scale matrices? (Distributed ALS, stochastic methods)
+   \end{itemize}
+
+\textbf{Final Recommendation:}
+For practitioners, we recommend:
+\begin{itemize}
+  \item \textbf{Sparse recommender systems:} Use ALS with SVD initialization, $\lambda \in [0.1, 1.0]$, rank 20--50
+  \item \textbf{Dense image/feature tasks:} Use L-BFGS with SVD initialization, rank determined by compression requirement
+  \item \textbf{Research/teaching:} Gradient descent for interpretability and debugging
+\end{itemize}
+
+\end{document}
