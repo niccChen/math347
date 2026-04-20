@@ -9,3 +9,14 @@ figures/**/*.pdf
 figures/**/*.csv
 results/**/*.csv
 results/**/*.json
+
+# LaTeX build artifacts
+*.fdb_latexmk
+*.fls
+*.log
+*.aux
+*.out
+*.toc
+*.snm
+*.nav
+

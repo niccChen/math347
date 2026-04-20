@@ -1,0 +1,1216 @@
+\documentclass[11pt,oneside]{article}
+
+\usepackage[utf-8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{xfrac}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\usepackage{mdframed}
+
+% Code formatting
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+    showstringspaces=false,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+% Custom commands
+\newcommand{\defn}[1]{\textbf{#1}}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+\newcommand{\frobnorm}[1]{\left\|#1\right\|_F}
+\newcommand{\inner}[2]{\langle #1, #2 \rangle}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\RR}[2]{\mathbb{R}^{#1 \times #2}}
+\newcommand{\Real}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\grad}{\nabla}
+\newcommand{\question}[1]{\textbf{Q: #1}}
+\newcommand{\answer}{\textbf{A: }}
+
+% Title and author
+\title{\Large\textbf{Frequently Asked Questions (FAQ)}\\\Large Low-Rank Matrix Factorization Project}
+\author{Comprehensive Documentation}
+\date{\today}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Low-Rank Matrix Factorization FAQ}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{\small This document provides comprehensive documentation of the low-rank matrix factorization project.}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=black,
+    bookmarksnumbered=true,
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This comprehensive FAQ document addresses the fundamental concepts, mathematical formulations, optimization algorithms, computational complexity, and practical considerations for low-rank matrix factorization. It serves as a complete reference guide for understanding the implementation, choosing appropriate methods, and troubleshooting common issues.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+\section{What is Low-Rank Matrix Factorization?}\label{sec:intro}
+% ============================================================================
+
+\question{What is Low-Rank Matrix Factorization?}
+
+\answer Low-rank matrix factorization is a technique that decomposes a large matrix $M \in \Real^{m \times n}$ into a product of two smaller matrices:
+
+\begin{equation}
+    M \approx U V^T
+\end{equation}
+
+where $U \in \Real^{m \times r}$ and $V \in \Real^{n \times r}$, with $r \ll \min(m, n)$ being the \defn{rank} of the factorization.
+
+\paragraph{Why is this useful?}
+
+\begin{itemize}
+    \item \textbf{Dimensionality reduction}: Compresses large matrices while preserving important structure
+    \item \textbf{Noise removal}: Can recover underlying low-rank structure from noisy observations
+    \item \textbf{Prediction}: Used in recommendation systems (e.g., MovieLens) to predict missing values
+    \item \textbf{Computational efficiency}: Requires only $r(m + n)$ parameters instead of $mn$ for the full matrix
+\end{itemize}
+
+% ============================================================================
+\section{Problem Formulation and Mathematical Framework}\label{sec:formulation}
+% ============================================================================
+
+\question{What is the exact optimization problem being solved?}
+
+\answer We solve the \defn{regularized low-rank matrix factorization problem}:
+
+\begin{equation}\label{eq:objective}
+    \min_{U, V} f(U, V) = \frac{1}{2}\left\|UV^T - M\right\|_F^2 + \frac{\lambda}{2}\left(\|U\|_F^2 + \|V\|_F^2\right)
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $U \in \Real^{m \times r}$ and $V \in \Real^{n \times r}$ are the \defn{factor matrices}
+    \item $M \in \Real^{m \times n}$ is the observed matrix (dense or sparse)
+    \item $\|\cdot\|_F$ denotes the \defn{Frobenius norm}: $\|A\|_F = \sqrt{\sum_{i,j} a_{ij}^2}$
+    \item $\lambda \geq 0$ is the \defn{regularization parameter} (controls model complexity)
+\end{itemize}
+
+\medskip
+
+\question{What about the sparse version?}
+
+\answer For sparse matrices with observed entries $\{(i, j, M_{ij}) : (i,j) \in \Omega\}$, we solve:
+
+\begin{equation}\label{eq:sparse_objective}
+    \min_{U, V} f(U, V) = \frac{1}{2}\sum_{(i,j) \in \Omega}(U_i V_j^T - M_{ij})^2 + \frac{\lambda}{2}\left(\|U\|_F^2 + \|V\|_F^2\right)
+\end{equation}
+
+This optimizes only over observed ratings (e.g., in recommendation systems) rather than the entire matrix.
+
+% ============================================================================
+\section{Key Mathematical Symbols and Notation}\label{sec:notation}
+% ============================================================================
+
+\question{What are the standard mathematical notations used in this project?}
+
+\answer Here are the key symbols and their meanings:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} & \textbf{Type/Domain} \\
+\midrule
+$U$ & First factor matrix & $\Real^{m \times r}$ \\
+$V$ & Second factor matrix & $\Real^{n \times r}$ \\
+$M$ & Target/observed matrix & $\Real^{m \times n}$ \\
+$r$ & Rank (latent dimensionality) & scalar $\ll \min(m,n)$ \\
+$m, n$ & Dimensions of $M$ & scalars \\
+$\lambda$ & Regularization parameter & $\lambda > 0$ \\
+$\grad_U f$ & Gradient w.r.t.\ $U$ & $\Real^{m \times r}$ \\
+$\grad_V f$ & Gradient w.r.t.\ $V$ & $\Real^{n \times r}$ \\
+$\alpha$ or $\eta$ & Step size/learning rate & scalar \\
+$f(U, V)$ & Objective function value & $\Real$ \\
+$\Omega$ & Set of observed entries (sparse) & index set \\
+$\|\cdot\|_F$ & Frobenius norm & $\Real \to \Real_{\geq 0}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+\section{Optimization Methods: Algorithms and Approaches}\label{sec:methods}
+% ============================================================================
+
+\question{What three optimization methods does the project implement?}
+
+\answer This project compares three state-of-the-art optimization algorithms.
+
+% ----
+\subsection{Gradient Descent with Armijo Backtracking (GD)}\label{subsec:gd}
+% ----
+
+\paragraph{Algorithm Overview}
+
+At each iteration $k$:
+\begin{enumerate}
+    \item Compute gradient: $\mathbf{g}_k = \grad f(U_k, V_k) = [\grad_U f, \grad_V f]^T$
+    \item Perform line search to find step size $\alpha_k$
+    \item Update: $\theta_{k+1} = \theta_k - \alpha_k \mathbf{g}_k$
+\end{enumerate}
+
+\paragraph{Gradient Formulation}
+
+For dense problems:
+\begin{align}
+    \grad_U f &= (UV^T - M)V + \lambda U \\
+    \grad_V f &= (UV^T - M)^T U + \lambda V
+\end{align}
+
+For sparse problems:
+\begin{align}
+    \grad_U f &= \sum_{(i,j) \in \Omega} (U_i V_j^T - M_{ij})V_j + \lambda U \\
+    \grad_V f &= \sum_{(i,j) \in \Omega} (U_i V_j^T - M_{ij})U_i + \lambda V
+\end{align}
+
+\paragraph{Armijo Line Search Condition}
+
+We accept step size $\alpha_k$ if:
+\begin{equation}
+    f(\theta_{k+1}) \leq f(\theta_k) - c \alpha_k \|\mathbf{g}_k\|^2
+\end{equation}
+
+where $c = 10^{-4}$ (default) is the \defn{Armijo constant}. This ensures sufficient decrease in the objective function.
+
+\paragraph{Backtracking Strategy}
+
+\begin{itemize}
+    \item Start with initial guess $\alpha = 1.0$
+    \item If condition fails, shrink: $\alpha \leftarrow 0.5 \cdot \alpha$ (backtracking with $\rho = 0.5$)
+    \item Continue until line search succeeds or $\alpha < 10^{-12}$ (failure)
+\end{itemize}
+
+\paragraph{Convergence Criterion}
+
+Stops when gradient norm $\|\mathbf{g}_k\|_2 \leq 10^{-6}$ or max iterations reached.
+
+% ----
+\subsection{L-BFGS (Limited-memory BFGS)}\label{subsec:lbfgs}
+% ----
+
+\paragraph{Algorithm Overview}
+
+L-BFGS is a \defn{quasi-Newton method} that approximates the second-order Hessian information without storing the full matrix.
+
+\paragraph{Key Idea}
+
+Instead of storing the full approximate Hessian $\mathbf{B}_k$ (requires $O(d^2)$ memory where $d = mr + nr$), L-BFGS stores only the last $m$ pairs of gradient differences and update vectors.
+
+\paragraph{Update Rule}
+
+\begin{equation}
+    \theta_{k+1} = \theta_k - \alpha_k \mathbf{B}_k^{-1} \grad f(\theta_k)
+\end{equation}
+
+where $\mathbf{B}_k^{-1}$ is implicitly reconstructed from stored history.
+
+\paragraph{Why Use L-BFGS Over GD?}
+
+\begin{itemize}
+    \item \textbf{Faster convergence}: Superlinear convergence vs.\ linear for GD
+    \item \textbf{Adaptive step sizes}: Incorporates second-order information
+    \item \textbf{Memory efficient}: $O(mr + nr)$ memory instead of $O((mr + nr)^2)$
+\end{itemize}
+
+\paragraph{Implementation}
+
+We use \texttt{scipy.optimize.minimize} with \texttt{method='L-BFGS-B'} for box-constrained optimization.
+
+% ----
+\subsection{Alternating Least Squares (ALS)}\label{subsec:als}
+% ----
+
+\paragraph{Algorithm Overview}
+
+ALS exploits the \defn{bilinear structure} of the problem by optimizing $U$ and $V$ separately in alternating fashion.
+
+\paragraph{ALS Updates}
+
+\textit{Fix $V$, optimize $U$:}
+\begin{equation}
+    U^* = \arg\min_U \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}\|U\|_F^2
+\end{equation}
+
+This is a least-squares problem with closed-form solution:
+\begin{equation}
+    U_i^* = (V^TV + \lambda I)^{-1} V^T M_i^T
+\end{equation}
+
+Or in matrix form:
+\begin{equation}
+    U^* = M(V + \lambda I)^{-1}
+\end{equation}
+
+\textit{Fix $U$, optimize $V$:}
+\begin{equation}
+    V^* = \arg\min_V \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}\|V\|_F^2
+\end{equation}
+
+Solution:
+\begin{equation}
+    V_j^* = (U^TU + \lambda I)^{-1} U^T M_j
+\end{equation}
+
+Or in matrix form:
+\begin{equation}
+    V^* = M^T(U + \lambda I)^{-1}
+\end{equation}
+
+\paragraph{Sparse Version}
+
+For sparse data, we update row-by-row and column-by-column using only observed entries. For row $i$:
+\begin{equation}
+    U_i^* = (V_{\text{obs}}^T V_{\text{obs}} + \lambda I)^{-1} V_{\text{obs}}^T M_{i,\text{obs}}
+\end{equation}
+
+where $V_{\text{obs}}$ contains only columns corresponding to observed entries in row $i$.
+
+\paragraph{Advantages}
+
+\begin{itemize}
+    \item \textbf{Exact solutions}: Each subproblem is solved exactly (or via pseudo-inverse)
+    \item \textbf{Stable convergence}: No step size tuning needed
+    \item \textbf{Highly efficient for sparse data}: Complexity depends on sparsity pattern
+\end{itemize}
+
+% ============================================================================
+\section{Why These Optimization Techniques?}\label{sec:why}
+% ============================================================================
+
+\question{Why use gradient descent instead of directly solving the normal equations?}
+
+\answer While the normal equations $\mathbf{A}^T\mathbf{A}\mathbf{x} = \mathbf{A}^Tb$ have closed-form solutions, directly solving them is problematic:
+
+\begin{enumerate}
+    \item \textbf{Non-convex problem}: The factorization problem is \defn{non-convex} in $(U, V)$ jointly. There are no global optimality conditions from standard linear algebra.
+    \item \textbf{Numerical stability}: For ill-conditioned systems, solving normal equations amplifies numerical errors (condition number is squared).
+    \item \textbf{Sparse data handling}: Gradient-based methods naturally handle sparse, high-dimensional problems.
+    \item \textbf{Local convergence guarantees}: Gradient descent with backtracking ensures convergence to stationary points.
+\end{enumerate}
+
+\medskip
+
+\question{Why use Armijo line search in gradient descent?}
+
+\answer The Armijo condition provides:
+\begin{itemize}
+    \item \textbf{Guaranteed descent}: Each step reduces the objective by at least $c\alpha_k \|\mathbf{g}_k\|^2$
+    \item \textbf{Adaptive step sizes}: Large steps when far from optimum, small steps when close
+    \item \textbf{Efficiency}: Avoids expensive exact line search while maintaining convergence
+    \item \textbf{Robustness}: Works without problem-specific knowledge
+\end{itemize}
+
+\medskip
+
+\question{Why use L-BFGS?}
+
+\answer L-BFGS combines advantages of both GD and Newton methods:
+\begin{itemize}
+    \item \textbf{Superlinear convergence}: Faster than GD, approaching Newton's quadratic convergence near optimum
+    \item \textbf{Memory efficient}: Practical for high-dimensional problems $(mr + nr)$ parameters
+    \item \textbf{Automatic step sizing}: Uses approximate Hessian information
+    \item \textbf{Black-box solver}: No algorithm tuning needed (works well out-of-the-box)
+\end{itemize}
+
+\medskip
+
+\question{When should we use ALS instead of GD or L-BFGS?}
+
+\answer Use ALS when:
+\begin{itemize}
+    \item \textbf{Bilinear structure is critical}: Problem must be solved repeatedly with changing data
+    \item \textbf{Sparse matrices dominate}: Row/column-wise updates exploit sparsity patterns
+    \item \textbf{Computational efficiency matters}: ALS avoids expensive gradient computations per iteration
+    \item \textbf{Convergence behavior is stable}: No step size tuning; often faster initial convergence
+\end{itemize}
+
+% ============================================================================
+\section{Computational Complexity and Convergence Analysis}\label{sec:complexity}
+% ============================================================================
+
+\question{What is the computational complexity per iteration for each method?}
+
+\answer
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lllp{3cm}}
+\toprule
+\textbf{Method} & \textbf{Dense} & \textbf{Sparse} & \textbf{Comments} \\
+\midrule
+GD & $O(mnr)$ & $O(\text{nnz} \cdot r)$ & Gradient: $(UV^T - M)V$ \\
+L-BFGS & $O(mnr)$ & $O(\text{nnz} \cdot r)$ & Like GD; Hessian: $O(mr)$ \\
+ALS (dense) & $O(r^3 + mnr)$ & $O(r^3 + \text{nnz} \cdot r)$ & Solve: $O(r^3)$ \\
+ALS (sparse) & --- & $O(\text{nnz} \cdot r^2/r)$ & Row/col updates only \\
+\bottomrule
+\end{tabular}
+\caption{Per-iteration computational complexity. Here $\text{nnz}$ is the number of nonzero entries.}
+\end{table}
+
+\medskip
+
+\question{What are the convergence rates?}
+
+\answer
+
+\paragraph{Gradient Descent}
+
+\begin{itemize}
+    \item \textbf{Local convergence rate}: Linear (geometric)
+    \item \textbf{Rate constant}: Depends on Lipschitz constant $L$ of gradient
+    \item \textbf{Asymptotic bound}: $\|\mathbf{g}_k\| = O(\rho^k)$ where $\rho < 1$
+\end{itemize}
+
+\paragraph{L-BFGS}
+
+\begin{itemize}
+    \item \textbf{Superlinear convergence}: $\|\mathbf{g}_k\| = o(\rho^k)$ for any $\rho > 0$
+    \item \textbf{Typically faster}: Quadratic-like near optimum
+    \item \textbf{No exact rate}: Depends on problem conditioning
+\end{itemize}
+
+\paragraph{ALS}
+
+\begin{itemize}
+    \item \textbf{Linear convergence}: Similar to GD but often with better constants
+    \item \textbf{Problem-dependent}: Depends on spectrum of $(V^TV + \lambda I)^{-1}(V^TV)$ type matrices
+    \item \textbf{Fast initial convergence}: Often beats GD for first 5--10 iterations
+\end{itemize}
+
+\medskip
+
+\question{How do we measure convergence in practice?}
+
+\answer We monitor:
+
+\begin{enumerate}
+    \item \textbf{Objective function}: $f(U_k, V_k)$ should monotonically decrease
+    \item \textbf{Gradient norm}: 
+    \begin{equation}
+        \|\grad f\|_F = \sqrt{\|\grad_U f\|_F^2 + \|\grad_V f\|_F^2}
+    \end{equation}
+    Converged when $\|\grad f\|_F \leq 10^{-6}$
+    
+    \item \textbf{Relative change}:
+    \begin{equation}
+        \frac{|f(U_k, V_k) - f(U_{k-1}, V_{k-1})|}{|f(U_{k-1}, V_{k-1})|}
+    \end{equation}
+    Converged when this is $\leq 10^{-8}$
+    
+    \item \textbf{Wall-clock time}: Total execution time in seconds
+\end{enumerate}
+
+% ============================================================================
+\section{Regularization and Its Role}\label{sec:regularization}
+% ============================================================================
+
+\question{Why do we use $L_2$ regularization with parameter $\lambda$?}
+
+\answer Regularization serves multiple purposes:
+
+\begin{enumerate}
+    \item \textbf{Prevents overfitting}: 
+    \begin{itemize}
+        \item Without regularization, factors $U, V$ can grow arbitrarily large while maintaining small loss
+        \item Regularization term $\lambda(\|U\|_F^2 + \|V\|_F^2)$ keeps them bounded
+    \end{itemize}
+    
+    \item \textbf{Improves numerical stability}:
+    \begin{itemize}
+        \item Makes the problem better conditioned
+        \item Helps with sparse data where some rows/columns have few observations
+    \end{itemize}
+    
+    \item \textbf{Implicit smoothing}:
+    \begin{itemize}
+        \item Encourages simpler, smoother solutions
+        \item Relevant for noisy data
+    \end{itemize}
+    
+    \item \textbf{Connection to Bayesian interpretation}:
+    \begin{itemize}
+        \item Equivalent to $L_2$ prior on $U, V$: $P(U,V) \propto \exp(-\lambda(\|U\|^2 + \|V\|^2))$
+    \end{itemize}
+\end{enumerate}
+
+\medskip
+
+\question{How do we choose $\lambda$?}
+
+\answer Common strategies:
+
+\begin{enumerate}
+    \item \textbf{Cross-validation}: Split data into train/validation, choose $\lambda$ minimizing validation error
+    \item \textbf{Grid search}: Try $\lambda \in \{10^{-3}, 10^{-2}, 10^{-1}, 1.0\}$ and compare
+    \item \textbf{Problem-specific}: 
+    \begin{itemize}
+        \item MovieLens: typically $\lambda = 10^{-2}$ works well
+        \item Superconductivity: may need larger $\lambda$ due to noise
+    \end{itemize}
+    \item \textbf{Generalized cross-validation}: Automatic selection without explicit validation set
+\end{enumerate}
+
+% ============================================================================
+\section{Initialization Strategies}\label{sec:initialization}
+% ============================================================================
+
+\question{How do we initialize $U_0$ and $V_0$?}
+
+\answer We provide two strategies.
+
+\subsection*{Random Initialization}
+
+\begin{equation}
+    U_0 \sim \mathcal{N}(0, \sigma^2 I), \quad V_0 \sim \mathcal{N}(0, \sigma^2 I)
+\end{equation}
+
+where $\sigma = 0.1$ (small scale to avoid large initial gradients).
+
+\paragraph{Pros:} Simple, requires no prior information
+
+\paragraph{Cons:} May converge to poor local minima
+
+\subsection*{SVD-based Initialization}
+
+\begin{enumerate}
+    \item Compute truncated SVD: $M = U_{\text{SVD}}\Sigma_r V_{\text{SVD}}^T$ (rank-$r$ approximation)
+    \item Initialize:
+    \begin{equation}
+        U_0 = U_{\text{SVD}} \sqrt{\Sigma_r}, \quad V_0 = V_{\text{SVD}} \sqrt{\Sigma_r}
+    \end{equation}
+    where $\sqrt{\Sigma_r}$ is element-wise square root.
+\end{enumerate}
+
+\paragraph{Pros}
+\begin{itemize}
+    \item Starts very close to optimal solution
+    \item Better local optimum quality
+    \item Faster convergence
+\end{itemize}
+
+\paragraph{Cons}
+\begin{itemize}
+    \item Expensive for large matrices ($O(mn \min(m,n))$)
+    \item Requires dense matrix in memory
+    \item May overfit for sparse data
+\end{itemize}
+
+% ============================================================================
+\section{Handling Dense vs.\ Sparse Data}\label{sec:sparse}
+% ============================================================================
+
+\question{How does the implementation handle sparse matrices?}
+
+\answer The project supports both \defn{dense} and \defn{sparse} representations.
+
+\subsection*{Dense Problems}
+
+\begin{itemize}
+    \item Store full $m \times n$ matrix in memory
+    \item Compute gradients: $\grad_U f = (UV^T - M)V + \lambda U$
+    \item All matrix operations use standard linear algebra
+\end{itemize}
+
+\subsection*{Sparse Problems}
+
+\begin{itemize}
+    \item Store only nonzero entries as coordinate format: $(i, j, M_{ij})$
+    \item Build \defn{lookup tables}:
+    \begin{itemize}
+        \item \texttt{row\_to\_cols[i]}: columns with nonzero entries in row $i$
+        \item \texttt{row\_to\_vals[i]}: corresponding values
+        \item \texttt{col\_to\_rows[j]}: rows with nonzero entries in column $j$
+        \item \texttt{col\_to\_vals[j]}: corresponding values
+    \end{itemize}
+\end{itemize}
+
+\subsection*{Gradient Computation (Sparse)}
+
+\begin{equation}
+    \grad_{U_i} f = \sum_{j \in \text{row\_to\_cols}[i]} (U_i V_j^T - M_{ij})V_j + \lambda U_i
+\end{equation}
+
+Only computes contributions from observed entries.
+
+\subsection*{ALS for Sparse}
+
+For each row $i$:
+\begin{equation}
+    U_i = (V_{\text{obs}}^T V_{\text{obs}} + \lambda I)^{-1} V_{\text{obs}}^T M_{i,\text{obs}}
+\end{equation}
+
+where $V_{\text{obs}} = V[\text{row\_to\_cols}[i]]$ contains only relevant columns.
+
+\paragraph{Benefits}
+
+\begin{itemize}
+    \item Memory: $O(\text{nnz})$ instead of $O(mn)$
+    \item Time: $O(\text{nnz} \cdot r)$ instead of $O(mnr)$
+    \item Critical for massive datasets (MovieLens: $\sim$100K ratings, but $943 \times 1682 \approx 1.6\text{M}$ entries)
+\end{itemize}
+
+% ============================================================================
+\section{Datasets and Evaluation Metrics}\label{sec:datasets}
+% ============================================================================
+
+\question{What datasets are used, and how do we evaluate performance?}
+
+\answer The project tests on three dataset types.
+
+\subsection*{1. Synthetic Low-Rank Matrices}
+
+\paragraph{Generation}
+
+\begin{itemize}
+    \item Create true factors $U_* \in \Real^{m \times r}, V_* \in \Real^{n \times r}$
+    \item Generate data: $M = U_* V_*^T + \text{noise}$, where noise $\sim \mathcal{N}(0, \sigma^2)$
+    \item Default: $m=500, n=200, r=5, \sigma=0.1$
+\end{itemize}
+
+\paragraph{Evaluation}
+
+\begin{equation}
+    \text{Reconstruction Error} = \|U_{\text{recovered}}V_{\text{recovered}}^T - M_{\text{original}}\|_F
+\end{equation}
+
+\subsection*{2. Superconductivity Dataset}
+
+\paragraph{Source:} UCI Machine Learning Repository (Dataset ID: 464)
+
+\paragraph{Properties}
+\begin{itemize}
+    \item 21,263 samples $\times$ 81 features
+    \item Regression problem (predicting superconducting temperature)
+    \item Treated as dense matrix for factorization
+\end{itemize}
+
+\paragraph{Evaluation:} Test on held-out features/samples using reconstruction error
+
+\subsection*{3. MovieLens 100K}
+
+\paragraph{Source:} Grouplens MovieLens dataset
+
+\paragraph{Properties}
+\begin{itemize}
+    \item 943 users $\times$ 1,682 movies
+    \item $\sim$100,000 ratings (5-star scale)
+    \item Extremely sparse: $\approx 6.3\%$ density
+    \item Multiple train/test splits (u1.base/u1.test, etc.)
+\end{itemize}
+
+\paragraph{Evaluation Metric --- RMSE on Test Set}
+
+\begin{equation}
+    \text{RMSE}_{\text{test}} = \sqrt{\frac{1}{|\Omega_{\text{test}}|}\sum_{(i,j) \in \Omega_{\text{test}}}(U_i V_j^T - M_{ij})^2}
+\end{equation}
+
+where $\Omega_{\text{test}}$ are the held-out test ratings.
+
+% ============================================================================
+\section{Experiments and Comparisons}\label{sec:experiments}
+% ============================================================================
+
+\question{What experiments does the project run?}
+
+\answer
+
+\subsection*{Experiment 1: Method Comparison}
+
+\textbf{Purpose:} Compare GD, L-BFGS, and ALS on standard setting
+
+\textbf{Variables:} Fixed rank, fixed $\lambda$, vary dataset
+
+\textbf{Metric:} Time to convergence, final objective value, solution quality
+
+\subsection*{Experiment 2: Initialization Sensitivity}
+
+\textbf{Purpose:} Assess random vs.\ SVD initialization impact
+
+\textbf{Variables:} Initialization method, vary dataset
+
+\textbf{Finding:} SVD init typically gives better solutions with faster convergence
+
+\subsection*{Experiment 3: Rank Sensitivity}
+
+\textbf{Purpose:} Study effect of chosen rank $r$ vs.\ true rank $r_{\text{true}}$
+
+\textbf{Variables:} Range of $r$ values, fixed $\lambda$
+
+\textbf{Findings}
+\begin{itemize}
+    \item Best performance at $r = r_{\text{true}}$
+    \item Underfitting when $r < r_{\text{true}}$ (bias)
+    \item Overfitting when $r > r_{\text{true}}$ (variance)
+\end{itemize}
+
+\subsection*{Experiment 4: Regularization Sensitivity}
+
+\textbf{Purpose:} Optimize regularization parameter $\lambda$
+
+\textbf{Variables:} Grid of $\lambda$ values
+
+\textbf{Findings:} U-shaped error curve; optimal $\lambda$ balances bias-variance
+
+\subsection*{Experiment 5: Loss Landscape}
+
+\textbf{Purpose:} Visualize optimization landscape
+
+\textbf{Exploration:} 2D slice through factor space
+
+\textbf{Findings:} Multiple local minima; algorithms converge to different solutions from different initializations
+
+% ============================================================================
+\section{Stopping Criteria and Convergence Diagnostics}\label{sec:stopping}
+% ============================================================================
+
+\question{When does the algorithm stop iterating?}
+
+\answer Algorithms stop when ANY of these conditions is met:
+
+\begin{enumerate}
+    \item \textbf{Gradient convergence}:
+    \begin{equation}
+        \|\grad f(U_k, V_k)\|_F \leq 10^{-6}
+    \end{equation}
+    
+    \item \textbf{Objective stalling}:
+    \begin{equation}
+        \frac{|f_k - f_{k-1}|}{|f_{k-1}|} \leq 10^{-8}
+    \end{equation}
+    (Relative change too small to matter)
+    
+    \item \textbf{Maximum iterations reached}: Default: 500 iterations
+    
+    \item \textbf{Failure modes}:
+    \begin{itemize}
+        \item Line search fails (GD only): Cannot find acceptable step size
+        \item Singular linear system (ALS only): Pseudo-inverse fallback used
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{Status Field}
+
+The history dictionary tracks termination reason:
+\begin{itemize}
+    \item \texttt{"converged"}: Gradient converged to tolerance
+    \item \texttt{"objective\_stalled"}: Function value stopped improving
+    \item \texttt{"max\_iter"}: Hit iteration limit
+    \item \texttt{"line\_search\_failed"}: GD backtracking failed
+\end{itemize}
+
+% ============================================================================
+\section{Implementation Details and Numerical Considerations}\label{sec:implementation}
+% ============================================================================
+
+\question{What numerical precautions are taken?}
+
+\answer
+
+\begin{enumerate}
+    \item \textbf{Pseudo-inverse fallback (ALS)}:
+    \begin{itemize}
+        \item Try to solve $\mathbf{A}x = b$ via \texttt{np.linalg.solve()}
+        \item If matrix is singular, use \texttt{np.linalg.pinv()} (pseudo-inverse)
+        \item Ensures robust behavior even with ill-conditioned systems
+    \end{itemize}
+    
+    \item \textbf{Gradient norm computation}:
+    \begin{equation}
+        \|\grad f\|_2 = \sqrt{\sum_{i,j}(\grad_U f)_{ij}^2 + (\grad_V f)_{ij}^2}
+    \end{equation}
+    Computed efficiently using summed squared elements
+    
+    \item \textbf{Step size bounds}:
+    \begin{itemize}
+        \item Minimum: $\alpha_{\min} = 10^{-12}$ (GD backtracking)
+        \item Initial guess: $\alpha_0 = 1.0$
+        \item Never exceeds: $\alpha_{\max} = 2 \times \alpha_{\text{previous}}$
+    \end{itemize}
+    
+    \item \textbf{Packing/unpacking factors}:
+    \begin{itemize}
+        \item For optimization algorithms requiring vector input (L-BFGS), concatenate:
+        \begin{equation}
+            \mathbf{x} = [U_{\text{vec}}; V_{\text{vec}}]
+        \end{equation}
+        \item Allows standard optimizers to work with matrix problems
+    \end{itemize}
+\end{enumerate}
+
+% ============================================================================
+\section{Performance Benchmarking and Timing}\label{sec:benchmarking}
+% ============================================================================
+
+\question{How is computational time measured?}
+
+\answer Using \texttt{time.perf\_counter()} for wall-clock time:
+
+\begin{lstlisting}
+start = time.perf_counter()
+# ... run optimization ...
+elapsed = time.perf_counter() - start
+\end{lstlisting}
+
+\medskip
+
+\textbf{Typical timings} (moderate hardware, synthetic data $500 \times 200$, rank 5):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Method} & \textbf{Iterations} & \textbf{Time} & \textbf{Time/Iteration} \\
+\midrule
+GD & 150--300 & 2--5s & $\sim$15ms \\
+L-BFGS & 40--80 & 1--3s & $\sim$30ms \\
+ALS & 20--50 & 0.5--2s & $\sim$25ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\medskip
+
+\question{What affects convergence speed?}
+
+\answer
+
+\begin{enumerate}
+    \item \textbf{Initialization quality}
+    \begin{itemize}
+        \item SVD init: 5--10$\times$ faster than random
+    \end{itemize}
+    
+    \item \textbf{Rank selection}
+    \begin{itemize}
+        \item Too large: Overfitting, slower convergence
+        \item Too small: Underfitting, may not converge to good solution
+    \end{itemize}
+    
+    \item \textbf{Regularization strength $\lambda$}
+    \begin{itemize}
+        \item Small $\lambda$: Longer to converge, higher risk of overfitting
+        \item Large $\lambda$: Faster, but solution less accurate
+    \end{itemize}
+    
+    \item \textbf{Data properties}
+    \begin{itemize}
+        \item Sparsity: Sparse data usually converges slower
+        \item Noise: Higher noise requires more iterations
+    \end{itemize}
+    
+    \item \textbf{Problem conditioning}
+    \begin{itemize}
+        \item Ill-conditioned: All methods slow down
+        \item Well-conditioned: Superlinear methods (L-BFGS) excel
+    \end{itemize}
+\end{enumerate}
+
+% ============================================================================
+\section{Practical Tips and Troubleshooting}\label{sec:troubleshooting}
+% ============================================================================
+
+\question{Which method should I use for my problem?}
+
+\answer
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Problem Type} & \textbf{Recommended} & \textbf{Reason} \\
+\midrule
+Dense, small--medium & L-BFGS & Best all-around \\
+Dense, very large & GD & Memory efficient \\
+Sparse, large & ALS & Exploits sparsity \\
+Quick prototyping & GD & Simple, reliable \\
+Production system & ALS or L-BFGS & Stable, predictable \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\medskip
+
+\question{How do I avoid poor local minima?}
+
+\answer
+
+\begin{enumerate}
+    \item \textbf{Use SVD initialization} (if computationally feasible)
+    \item \textbf{Try multiple random seeds} and pick best result
+    \item \textbf{Increase rank slightly} (may help escape bad minima)
+    \item \textbf{Reduce regularization} (but watch for overfitting)
+    \item \textbf{Increase iterations} (sometimes helps find better solution)
+\end{enumerate}
+
+\medskip
+
+\question{My solution has high reconstruction error. What should I do?}
+
+\answer
+
+\textbf{Check these issues}:
+
+\begin{enumerate}
+    \item \textbf{Is rank sufficient?} Try $r + 1$ or $r + 2$
+    \item \textbf{Is $\lambda$ too large?} Reduces model capacity
+    \item \textbf{Is data noisy?} May need larger $\lambda$ or accept higher error
+    \item \textbf{Did algorithm converge?} Check gradient norm and objective value
+    \item \textbf{Is initialization poor?} Try SVD or multiple random seeds
+\end{enumerate}
+
+\medskip
+
+\question{Convergence is very slow. How can I speed it up?}
+
+\answer
+
+\begin{enumerate}
+    \item \textbf{Switch to L-BFGS} (superlinear vs.\ linear GD)
+    \item \textbf{Use SVD initialization} (much better starting point)
+    \item \textbf{Reduce tolerance} (converge to $10^{-5}$ instead of $10^{-6}$)
+    \item \textbf{Optimize $\lambda$} (may be poorly chosen)
+    \item \textbf{Check data quality} (noisy data requires more iterations)
+    \item \textbf{For sparse data, use ALS} (best for MovieLens-type problems)
+\end{enumerate}
+
+% ============================================================================
+\section{Mathematical Background References}\label{sec:references}
+% ============================================================================
+
+\question{Where can I learn more about the underlying mathematics?}
+
+\answer
+
+\textbf{Key Concepts}:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Topic} & \textbf{Relevance} & \textbf{Key Papers/Books} \\
+\midrule
+Matrix factorization & Core & Eckart \& Young (1936); Lee \& Seung (2001) \\
+Optimization & Methods & Boyd \& Vandenberghe (2004) Ch.\ 1--3 \\
+Gradient descent & GD method & Nesterov (2003) \\
+Quasi-Newton methods & L-BFGS & Dennis \& Moré (1977); Nocedal \& Wright (2006) \\
+Alternating optimization & ALS & Csiszár \& Tusnády (1984); Razaviyayn \textit{et al.} (2013) \\
+Line search & Armijo & Armijo (1966); Nocedal \& Wright Ch.\ 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================================
+\section{Common Questions About Results and Outputs}\label{sec:outputs}
+% ============================================================================
+
+\question{What does the history dictionary contain?}
+
+\answer
+
+\begin{lstlisting}
+history = {
+    "method": str,                  # "GD", "L-BFGS", or "ALS"
+    "obj": List[float],             # Objective values over iterations
+    "grad_norm": List[float],       # Gradient norms over iterations
+    "time": List[float],            # Cumulative time in seconds
+    "step_size": List[float],       # Step sizes (GD only)
+    "U_final": ndarray,             # Final U matrix
+    "V_final": ndarray,             # Final V matrix
+    "status": str,                  # Convergence status
+    "iterations": int,              # Total iterations taken
+}
+\end{lstlisting}
+
+\medskip
+
+\question{How do I extract and visualize results?}
+
+\answer
+
+\begin{lstlisting}
+# Convergence plot
+import matplotlib.pyplot as plt
+for method, hist in results.items():
+    plt.semilogy(hist["iterations"], 
+                 hist["grad_norm"], 
+                 label=method)
+plt.legend()
+plt.xlabel("Iteration")
+plt.ylabel("Gradient Norm")
+plt.show()
+
+# Reconstruction error
+U_final = history["U_final"]
+V_final = history["V_final"]
+reconstruction = U_final @ V_final.T
+error = np.linalg.norm(reconstruction - 
+                       original_matrix)
+\end{lstlisting}
+
+% ============================================================================
+\section{Frequently Encountered Errors}\label{sec:errors}
+% ============================================================================
+
+\question{I get ``LinAlgError: Singular matrix'' during ALS. What should I do?}
+
+\answer This happens when $V^T V + \lambda I$ or $U^T U + \lambda I$ is singular.
+
+\textbf{Solutions}:
+
+\begin{enumerate}
+    \item \textbf{Increase $\lambda$}: Use larger regularization parameter (e.g., $10 \lambda$)
+    \item \textbf{Algorithm fallback}: Code automatically uses pseudo-inverse (ensure \texttt{allow\_pinv=True})
+    \item \textbf{Check rank}: May be too large for dataset size
+    \item \textbf{Data validation}: Ensure no all-zero rows/columns in data
+\end{enumerate}
+
+\medskip
+
+\question{Gradient check fails. What does this mean?}
+
+\answer Gradient check compares analytical gradients with numerical finite-difference approximation:
+
+\begin{equation}
+    \text{relative\_error} = \frac{\|\grad f_{\text{analytical}} - \grad f_{\text{numerical}}\|}{\|\grad f_{\text{numerical}}\|}
+\end{equation}
+
+\textbf{If check fails} ($> 10^{-6}$ typically):
+
+\begin{enumerate}
+    \item \textbf{Bug in gradient code}: Review implementation
+    \item \textbf{Numerical precision issue}: Use higher precision (float64 if using float32)
+    \item \textbf{Step size too large}: Reduce for numerical differentiation
+\end{enumerate}
+
+% ============================================================================
+\section{Relationship Between Methods}\label{sec:relationship}
+% ============================================================================
+
+\question{How do GD, L-BFGS, and ALS relate to each other?}
+
+\answer
+
+\vspace{0.5cm}
+
+\begin{mdframed}[backgroundcolor=gray!10]
+All three optimize:
+\begin{equation*}
+    \min_{U,V} \tfrac{1}{2}\|UV^T - M\|_F^2 + \lambda(\|U\|_F^2 + \|V\|_F^2)
+\end{equation*}
+
+\medskip
+
+\textbf{GD}: Uses only first-order (gradient) information
+\begin{itemize}
+    \item Simple, stable
+    \item Slow convergence (linear)
+\end{itemize}
+
+\textbf{L-BFGS}: Uses approximate second-order (Hessian) information
+\begin{itemize}
+    \item More complex, faster convergence (superlinear)
+    \item Memory efficient (limited-memory variant)
+\end{itemize}
+
+\textbf{ALS}: Exploits bilinear structure; alternates optimization
+\begin{itemize}
+    \item Solves subproblems exactly via least-squares
+    \item Natural for factorization; very efficient for sparse data
+\end{itemize}
+\end{mdframed}
+
+\paragraph{Key Insight}
+
+Different methods make different trade-offs between:
+\begin{itemize}
+    \item \textbf{Convergence speed} (iterations to convergence)
+    \item \textbf{Per-iteration cost} (time per iteration)
+    \item \textbf{Implementation complexity} (code simplicity)
+    \item \textbf{Hyperparameter tuning} (algorithm parameters to set)
+\end{itemize}
+
+% ============================================================================
+\section{FAQ Meta: How to Use This Document}\label{sec:meta}
+% ============================================================================
+
+\question{How should I use this FAQ?}
+
+\answer
+
+\begin{itemize}
+    \item \textbf{For understanding concepts}: Start with Sections~\ref{sec:intro}--\ref{sec:notation} (Low-Rank, Problem, Notation)
+    \item \textbf{For algorithm details}: Read Sections~\ref{sec:methods}--\ref{sec:complexity} (Methods, Why, Complexity)
+    \item \textbf{For practical usage}: Jump to Sections~\ref{sec:implementation}--\ref{sec:errors} (Implementation, Troubleshooting)
+    \item \textbf{For comparison}: Use tables in Sections~\ref{sec:methods}, \ref{sec:complexity}, and \ref{sec:troubleshooting}
+    \item \textbf{For mathematical rigor}: Sections~\ref{sec:formulation}, \ref{sec:methods}, \ref{sec:complexity}, and \ref{sec:references} have detailed formulas
+\end{itemize}
+
+% ============================================================================
+\section{Quick Reference Card}\label{sec:quick_ref}
+% ============================================================================
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Question} & \textbf{Section} \\
+\midrule
+What is low-rank factorization? & \ref{sec:intro} \\
+What problem are we solving? & \ref{sec:formulation}, \ref{sec:notation} \\
+Which algorithm is fastest? & \ref{sec:methods}, \ref{sec:complexity}, \ref{sec:troubleshooting} \\
+How do I choose hyperparameters? & \ref{sec:regularization}, \ref{sec:troubleshooting} \\
+Why is my solution bad? & \ref{sec:troubleshooting} \\
+What datasets are available? & \ref{sec:datasets} \\
+How do I interpret results? & \ref{sec:outputs} \\
+Something went wrong! & \ref{sec:errors} \\
+\bottomrule
+\end{tabular}
+\caption{Quick reference guide with section cross-references.}
+\end{table}
+
+% ============================================================================
+\appendix
+% ============================================================================
+
+\section{Mathematical Symbols Summary}\label{app:symbols}
+
+\subsection*{Matrices and Vectors}
+
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Symbol} & \textbf{Dimension} & \textbf{Interpretation} \\
+\midrule
+$U$ & $m \times r$ & First low-rank factor \\
+$V$ & $n \times r$ & Second low-rank factor \\
+$M$ & $m \times n$ & Target matrix \\
+$I$ & $r \times r$ & Identity matrix \\
+$\mathbf{g}_k$ & $(mr+nr)$-d & Stacked gradient \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Operators and Norms}
+
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Notation} & \textbf{Type} & \textbf{Definition} \\
+\midrule
+$\|\cdot\|_F$ & Frobenius norm & $\|A\|_F = \sqrt{\sum_{i,j} a_{ij}^2}$ \\
+$\|\cdot\|_2$ & Euclidean norm & $\|v\|_2 = \sqrt{\sum_i v_i^2}$ \\
+$\grad f$ & Gradient & Direction of steepest ascent \\
+$\text{vec}(\cdot)$ & Vectorization & Stack matrix into vector \\
+$^T$ & Transpose & Flip matrix rows/columns \\
+$\otimes$ & Kronecker product & Tensor product of matrices \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Frequently Used Acronyms}
+
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Acronym} & \textbf{Full Name} & \textbf{Usage} \\
+\midrule
+GD & Gradient Descent & Main first-order method \\
+L-BFGS & Limited-memory BFGS & Quasi-Newton method \\
+ALS & Alternating Least Squares & Bilinear optimization \\
+SVD & Singular Value Decomposition & Initialization and analysis \\
+RMSE & Root Mean Squared Error & Evaluation metric \\
+nnz & Number of nonzeros & Sparse matrix property \\
+\bottomrule
+\end{tabularx}
+
+% ============================================================================
+\section{Key Equations Summary}\label{app:equations}
+% ============================================================================
+
+\paragraph{Objective Function (Dense)}
+\begin{equation*}
+    f(U, V) = \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)
+\end{equation*}
+
+\paragraph{Gradient Descent Update}
+\begin{equation*}
+    U_{k+1} = U_k - \alpha_k \grad_U f(U_k, V_k), \quad V_{k+1} = V_k - \alpha_k \grad_V f(U_k, V_k)
+\end{equation*}
+
+\paragraph{ALS U-Update}
+\begin{equation*}
+    U^* = M(V + \lambda I)^{-1}
+\end{equation*}
+
+\paragraph{ALS V-Update}
+\begin{equation*}
+    V^* = M^T(U + \lambda I)^{-1}
+\end{equation*}
+
+\paragraph{Armijo Condition}
+\begin{equation*}
+    f(\theta_{k+1}) \leq f(\theta_k) - c\alpha_k \|\grad f(\theta_k)\|^2
+\end{equation*}
+
+\newpage
+
+\section{Further Reading}\label{app:reading}
+
+\subsection*{Foundational Papers}
+
+\begin{itemize}
+    \item \textbf{Eckart, C., \& Young, G.} (1936). ``The approximation of one matrix by another of lower rank.'' \textit{Psychometrika}, 1(3), 211--218.
+    
+    \item \textbf{Nocedal, J., \& Wright, S. J.} (2006). \textit{Numerical Optimization} (2nd ed.). Springer.
+    
+    \item \textbf{Boyd, S., \& Vandenberghe, L.} (2004). \textit{Convex Optimization}. Cambridge University Press.
+\end{itemize}
+
+\subsection*{Method-Specific References}
+
+\begin{itemize}
+    \item \textbf{Nesterov, Y.} (2003). ``Introductory lectures on convex optimization.'' In \textit{Optimization Methods and Applications}. Kluwer Academic Publishers.
+    
+    \item \textbf{Dennis, J. E., \& Moré, J. J.} (1977). ``Quasi-Newton methods, motivation and theory.'' \textit{SIAM Review}, 19(1), 46--89.
+    
+    \item \textbf{Razaviyayn, M., Hong, M., \& Luo, Z. Q.} (2013). ``A unified convergence analysis of block successive minimization methods for nonsmooth optimization.'' \textit{SIAM Journal on Optimization}, 23(2), 733--756.
+\end{itemize}
+
+\subsection*{Application-Specific References}
+
+\begin{itemize}
+    \item \textbf{Lee, D. D., \& Seung, H. S.} (2001). ``Algorithms for non-negative matrix factorization.'' In \textit{Advances in Neural Information Processing Systems} (pp.\ 556--562).
+    
+    \item \textbf{Koren, Y., Bell, R., \& Volinsky, C.} (2009). ``Matrix factorization techniques for recommender systems.'' \textit{Computer}, 42(8), 30--37.
+\end{itemize}
+
+\end{document}
