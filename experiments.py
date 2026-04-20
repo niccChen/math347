@@ -125,6 +125,8 @@ def _history_summary(
 def _rank_metric_for_dataset(dataset: dict[str, Any]) -> tuple[str, str, str]:
     if _test_problem(dataset) is not None:
         return "test_rmse", "Test RMSE", f"{dataset['name']}: test RMSE vs rank"
+    if dataset.get("M_clean") is not None:
+        return "recovery_error", "Recovery error", f"{dataset['name']}: recovery error vs rank"
     return (
         "reconstruction_error",
         "Relative reconstruction error",
