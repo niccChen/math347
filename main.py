@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from data import load_movielens_100k, load_superconductivity, load_synthetic
+from data import load_movielens_100k, load_superconductivity, load_synthetic, load_synthetic_sparse
 from experiments import (
     run_experiment_1,
     run_experiment_2,
@@ -59,6 +59,10 @@ def main() -> None:
     synthetic = load_synthetic(m=500, n=200, r_true=5, sigma=0.1, seed=args.seed)
     datasets = [synthetic]
 
+    # Add synthetic sparse with 80% sparsity
+    synthetic_sparse = load_synthetic_sparse(m=500, n=200, r_true=5, sigma=0.1, sparsity=0.8, seed=args.seed)
+    datasets.append(synthetic_sparse)
+
     if not args.skip_real:
         try:
             superconductivity = load_superconductivity(args.superconductivity_path)
@@ -81,7 +85,7 @@ def main() -> None:
     grad_report = check_gradient(synthetic["problem"], u0, v0, lam, num_checks=10, seed=args.seed)
     print(f"Gradient check max relative error: {grad_report['max_relative_error']:.3e}")
 
-    rank_map = {"synthetic": 5, "superconductivity": 10, "movielens_100k": 20}
+    rank_map = {"synthetic": 5, "synthetic_sparse": 5, "superconductivity": 10, "movielens_100k": 20}
     exp1 = run_experiment_1(
         datasets=datasets,
         output_dir=Path(args.output_dir) / "experiment_1",
@@ -104,7 +108,7 @@ def main() -> None:
     )
     print(f"Experiment 2 rows: {len(exp2)}")
 
-    rank_grid = {"synthetic": [2, 3, 5, 8, 10, 20]}
+    rank_grid = {"synthetic": [2, 3, 5, 8, 10, 20], "synthetic_sparse": [2, 3, 5, 8, 10, 20]}
     dataset_names = {dataset["name"] for dataset in datasets}
     if "superconductivity" in dataset_names:
         rank_grid["superconductivity"] = [2, 5, 10, 20, 40, 60]

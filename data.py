@@ -45,6 +45,57 @@ def load_synthetic(
     }
 
 
+def load_synthetic_sparse(
+    m: int = 500,
+    n: int = 200,
+    r_true: int = 5,
+    sigma: float = 0.1,
+    sparsity: float = 0.8,
+    seed: int = 0,
+) -> dict[str, Any]:
+    """Create synthetic sparse data with same low-rank structure as dense version.
+    
+    Args:
+        m: Number of rows
+        n: Number of columns
+        r_true: True rank of the underlying signal
+        sigma: Noise standard deviation
+        sparsity: Fraction of entries to mask (0.8 = 80% missing, 20% observed)
+        seed: Random seed for reproducibility
+    
+    Returns:
+        Dictionary with sparse problem representation and full dense clean matrix
+    """
+    rng = np.random.default_rng(seed)
+    
+    # Generate true low-rank structure
+    u_true = rng.standard_normal((m, r_true))
+    v_true = rng.standard_normal((n, r_true))
+    clean = u_true @ v_true.T
+    noise = sigma * rng.standard_normal((m, n))
+    observed = clean + noise
+    
+    # Create sparse version by random masking
+    mask = rng.random((m, n)) > sparsity  # sparsity fraction are False (masked)
+    
+    # Extract observed entries in triplet format
+    rows, cols = np.where(mask)
+    values = observed[rows, cols]
+    
+    return {
+        "name": "synthetic_sparse",
+        "M_clean": clean,  # Keep full clean matrix for recovery evaluation
+        "U_true": u_true,
+        "V_true": v_true,
+        "sigma": sigma,
+        "r_true": r_true,
+        "sparsity": sparsity,
+        "shape": observed.shape,
+        "nnz": len(values),
+        "problem": make_sparse_problem(rows, cols, values, shape=observed.shape, name="synthetic_sparse"),
+    }
+
+
 def _read_superconductivity_csv(path: Path) -> Array:
     frame = pd.read_csv(path)
     numeric = frame.select_dtypes(include=[np.number]).copy()
