@@ -36,18 +36,18 @@ def main() -> None:
     ensure_dir(args.results_dir)
 
     if args.mode == "quick":
-        synthetic = load_synthetic(m=120, n=80, r_true=5, sigma=0.1, seed=args.seed)
+        synthetic_dense = load_synthetic(m=120, n=80, r_true=5, sigma=0.1, seed=args.seed)
         rank = 5
         lam = 1e-2
         rng = np.random.default_rng(args.seed)
-        u0 = 0.1 * rng.standard_normal((synthetic["shape"][0], rank))
-        v0 = 0.1 * rng.standard_normal((synthetic["shape"][1], rank))
-        grad_report = check_gradient(synthetic["problem"], u0, v0, lam, num_checks=5, seed=args.seed)
+        u0 = 0.1 * rng.standard_normal((synthetic_dense["shape"][0], rank))
+        v0 = 0.1 * rng.standard_normal((synthetic_dense["shape"][1], rank))
+        grad_report = check_gradient(synthetic_dense["problem"], u0, v0, lam, num_checks=5, seed=args.seed)
         summary = run_experiment_1(
-            datasets=[synthetic],
+            datasets=[synthetic_dense],
             output_dir=Path(args.output_dir) / "quick",
             results_dir=Path(args.results_dir) / "quick",
-            rank_map={"synthetic": rank},
+            rank_map={"synthetic_dense": rank},
             lam=lam,
             seed=args.seed,
             max_iter=80,
@@ -56,8 +56,8 @@ def main() -> None:
         print(summary.to_string(index=False))
         return
 
-    synthetic = load_synthetic(m=500, n=200, r_true=5, sigma=0.1, seed=args.seed)
-    datasets = [synthetic]
+    synthetic_dense = load_synthetic(m=500, n=200, r_true=5, sigma=0.1, seed=args.seed)
+    datasets = [synthetic_dense]
 
     # Add synthetic sparse with 80% sparsity
     synthetic_sparse = load_synthetic_sparse(m=500, n=200, r_true=5, sigma=0.1, sparsity=0.8, seed=args.seed)
@@ -80,12 +80,12 @@ def main() -> None:
     rank = 5
     lam = 1e-2
     rng = np.random.default_rng(args.seed)
-    u0 = 0.1 * rng.standard_normal((synthetic["shape"][0], rank))
-    v0 = 0.1 * rng.standard_normal((synthetic["shape"][1], rank))
-    grad_report = check_gradient(synthetic["problem"], u0, v0, lam, num_checks=10, seed=args.seed)
+    u0 = 0.1 * rng.standard_normal((synthetic_dense["shape"][0], rank))
+    v0 = 0.1 * rng.standard_normal((synthetic_dense["shape"][1], rank))
+    grad_report = check_gradient(synthetic_dense["problem"], u0, v0, lam, num_checks=5, seed=args.seed)
     print(f"Gradient check max relative error: {grad_report['max_relative_error']:.3e}")
 
-    rank_map = {"synthetic": 5, "synthetic_sparse": 5, "superconductivity": 10, "movielens_100k": 20}
+    rank_map = {"synthetic_dense": 5, "synthetic_sparse": 5, "superconductivity": 10, "movielens_100k": 20}
     exp1 = run_experiment_1(
         datasets=datasets,
         output_dir=Path(args.output_dir) / "experiment_1",
@@ -98,7 +98,7 @@ def main() -> None:
     print(f"Experiment 1 rows: {len(exp1)}")
 
     exp2 = run_experiment_2(
-        problem=synthetic["problem"],
+        problem=synthetic_dense["problem"],
         rank=5,
         lam=lam,
         output_dir=Path(args.output_dir) / "experiment_2",
@@ -108,7 +108,7 @@ def main() -> None:
     )
     print(f"Experiment 2 rows: {len(exp2)}")
 
-    rank_grid = {"synthetic": [2, 3, 5, 8, 10, 20], "synthetic_sparse": [2, 3, 5, 8, 10, 20]}
+    rank_grid = {"synthetic_dense": [2, 3, 5, 8, 10, 20], "synthetic_sparse": [2, 3, 5, 8, 10, 20]}
     dataset_names = {dataset["name"] for dataset in datasets}
     if "superconductivity" in dataset_names:
         rank_grid["superconductivity"] = [2, 5, 10, 20, 40, 60]

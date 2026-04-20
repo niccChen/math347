@@ -33,7 +33,7 @@ def load_synthetic(
     noise = sigma * rng.standard_normal((m, n))
     observed = clean + noise
     return {
-        "name": "synthetic",
+        "name": "synthetic_dense",
         "M": observed,
         "M_clean": clean,
         "U_true": u_true,
@@ -41,7 +41,7 @@ def load_synthetic(
         "sigma": sigma,
         "r_true": r_true,
         "shape": observed.shape,
-        "problem": make_dense_problem(observed, name="synthetic"),
+        "problem": make_dense_problem(observed, name="synthetic_dense"),
     }
 
 

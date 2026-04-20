@@ -50,9 +50,9 @@ The project uses **four complementary datasets** to evaluate algorithms across d
 ### Why Four Datasets?
 
 ```
-Dataset         | Controls For          | Algorithm Insight
-────────────────┼──────────────────────┼────────────────────────
-Synthetic Dense | Known solution        | Correctness validation
+Dataset              | Controls For          | Algorithm Insight
+─────────────────────┼──────────────────────┼────────────────────────
+Synthetic Dense      | Known solution        | Correctness validation
 Synthetic Sparse| Sparsity effect       | Sparse algorithm advantage
 Supercond       | Real dense scale      | Computational efficiency
 MovieLens       | Production scenario   | Generalization ability

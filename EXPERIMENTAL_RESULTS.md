@@ -45,9 +45,9 @@ $$\min_{U \in \mathbb{R}^{m \times r}, V \in \mathbb{R}^{n \times r}} f(U, V) = 
 ```
 Dataset     | Method  | Iterations | Time (s) | Final Obj | Grad Norm | Recovery Error
 ------------|---------|------------|----------|-----------|-----------|----------------
-synthetic   | GD      | 250        | 0.135    | 500.11    | 0.285     | 0.00815
-synthetic   | L-BFGS  | 66         | 0.038    | 498.97    | 1.01e-05  | 0.00815
-synthetic   | ALS     | 250        | 0.092    | 741.84    | 2.27      | 0.00815
+synthetic_dense | GD      | 250        | 0.135    | 500.11    | 0.285     | 0.00815
+synthetic_dense | L-BFGS  | 66         | 0.038    | 498.97    | 1.01e-05  | 0.00815
+synthetic_dense | ALS     | 250        | 0.092    | 741.84    | 2.27      | 0.00815
 ```
 
 **Key Finding 1.1: L-BFGS Dominates Dense Data**
@@ -63,9 +63,9 @@ synthetic   | ALS     | 250        | 0.092    | 741.84    | 2.27      | 0.00815
 ```
 Dataset         | Method  | Iterations | Time (s) | Final Obj | Recovery Error
 ----------------|---------|------------|----------|-----------|----------------
-synthetic_sparse| GD      | 250        | 1.542    | 98.41     | 0.0201
-synthetic_sparse| L-BFGS  | 98         | 0.551    | 97.98     | 0.0201
-synthetic_sparse| ALS     | 250        | 2.764    | 179.73    | 0.0201
+synthetic_sparse | GD      | 250        | 1.542    | 98.41     | 0.0201
+synthetic_sparse | L-BFGS  | 98         | 0.551    | 97.98     | 0.0201
+synthetic_sparse | ALS     | 250        | 2.764    | 179.73    | 0.0201
 ```
 
 **Key Finding 1.2: Sparse Data Requires Different Strategy**
@@ -83,9 +83,9 @@ synthetic_sparse| ALS     | 250        | 2.764    | 179.73    | 0.0201
 ```
 Dataset      | Method  | Iterations | Time (s) | Final Obj | Train RMSE | Test RMSE
 -------------|---------|------------|----------|-----------|------------|----------
-movielens    | GD      | 250        | 46.30    | 17,572    | 0.661     | 1.042
-movielens    | L-BFGS  | 250        | 206.13   | 8,902     | 0.468     | 1.825
-movielens    | ALS     | 250        | 54.71    | 8,813     | 0.458     | 2.567
+movielens_100k | GD      | 250        | 46.30    | 17,572    | 0.661     | 1.042
+movielens_100k | L-BFGS  | 250        | 206.13   | 8,902     | 0.468     | 1.825
+movielens_100k | ALS     | 250        | 54.71    | 8,813     | 0.458     | 2.567
 ```
 
 **Key Finding 1.3: MovieLens Shows Generalization Risk**
