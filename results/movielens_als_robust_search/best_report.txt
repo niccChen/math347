@@ -1,0 +1,12 @@
+===== BEST BY MEAN TEST RMSE (across seeds) =====
+best_lam=0.1
+best_rank=5
+best_mean_test_rmse=1.07673757
+
+===== BEST SINGLE RUN =====
+lam=0.1
+rank=5
+seed=2
+test_rmse=1.07319408
+U_shape=(943, 5)
+V_shape=(1682, 5)

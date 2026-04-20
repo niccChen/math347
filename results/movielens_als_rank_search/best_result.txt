@@ -1,0 +1,4 @@
+best_rank=5
+best_test_rmse=1.27104123
+U_shape=(943, 5)
+V_shape=(1682, 5)
