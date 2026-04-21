@@ -1,0 +1,2 @@
+data_source,description,generation_method,notes
+synthetic_dense,"Synthetic dense matrix data source","Randomly generated low-rank matrix with full observations","Used for dense matrix factorization experiments"
