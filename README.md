@@ -9,6 +9,8 @@ $$\min_{U \in \mathbb{R}^{m \times r}, V \in \mathbb{R}^{n \times r}} f(U, V) = 
 
 ---
 
+CHECK experiment_1 to experiment_5 for synthetic_sparse data. 
+
 ## Core Algorithms
 
 | Algorithm | Method | Convergence | Best For |
