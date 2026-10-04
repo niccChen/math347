@@ -1,0 +1,1433 @@
+\documentclass[aspectratio=169,usenames,dvipsnames]{beamer}
+
+% Theme and color scheme
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Emory colors
+\definecolor{emoryblue}{RGB}{0, 51, 102}      % Navy blue
+\definecolor{emorygold}{RGB}{255, 184, 28}    % Gold
+\definecolor{emorywhite}{RGB}{255, 255, 255}  % White
+
+% Customize colors
+\setbeamercolor{primary}{bg=emoryblue, fg=emorywhite}
+\setbeamercolor{palette primary}{bg=emoryblue, fg=emorywhite}
+\setbeamercolor{palette secondary}{bg=emoryblue!75!black, fg=emorywhite}
+\setbeamercolor{palette tertiary}{bg=emoryblue!50!black, fg=emorywhite}
+\setbeamercolor{structure}{fg=emoryblue}
+\setbeamercolor{frametitle}{bg=emoryblue, fg=emorywhite}
+\setbeamercolor{title}{fg=emoryblue}
+\setbeamercolor{normal text}{fg=black}
+\setbeamercolor{author in head/foot}{bg=emoryblue!70, fg=emorywhite}
+\setbeamercolor{title in head/foot}{bg=emoryblue!70, fg=emorywhite}
+
+% Navigation
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Custom footer with author, institution, and page number
+\setbeamertemplate{footline}{%
+    \leavevmode%
+    \hbox{%
+        \begin{beamercolorbox}[wd=.33\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+            Chen, Cheng, Li (2026)
+        \end{beamercolorbox}%
+        
+        \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+            MATH 347: Non-Linear Optimization \hspace{12em} April 22, 2026
+        \end{beamercolorbox}%
+        
+        \begin{beamercolorbox}[wd=.25\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+            \insertframenumber/\inserttotalframenumber
+        \end{beamercolorbox}%
+    }%
+    \vskip0pt%
+}
+
+\addtobeamertemplate{background}{
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south east, xshift=-0.2cm, yshift=0.35cm]
+      at (current page.south east)
+      {\includegraphics[width=2.6cm]{Emory.png}};
+  \end{tikzpicture}
+}{}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+
+% Custom commands
+\newcommand{\defn}[1]{\textbf{#1}}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+\newcommand{\frobnorm}[1]{\left\|#1\right\|_F}
+\newcommand{\inner}[2]{\langle #1, #2 \rangle}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\RR}[2]{\mathbb{R}^{#1 \times #2}}
+\newcommand{\Real}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\grad}{\nabla}
+
+% Hyperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=emoryblue,
+    urlcolor=emoryblue,
+    citecolor=emoryblue
+}
+
+% Title and metadata
+\title{\Large Low-Rank Matrix Factorization}
+\subtitle{\normalsize Optimization Algorithms for  Regularized Matrix Decomposition}
+\author{Nicole Chen \and Joy Cheng \and Michelle Li}
+\date{MATH 347, Spring 2026}
+\institute{Emory University \\ }
+
+\begin{document}
+
+% ---- Title Slide ----
+\begin{frame}[plain]
+    \begin{tikzpicture}[remember picture, overlay]
+        % Background
+        \fill[emoryblue] (current page.south west) rectangle (current page.north east);
+        
+        % Gold accent bar
+        \fill[emorygold] (current page.south west) rectangle (current page.south east + (0, 0.5));
+    \end{tikzpicture}
+    
+    \vspace{1cm}
+    
+    \begin{centering}
+        {\Large \textcolor{emorywhite}{\textbf{\inserttitle}}}
+        
+        \vspace{0.5cm}
+        
+        {\normalsize \textcolor{emorygold}{\insertsubtitle}}
+        
+        \vspace{1.2cm}
+        
+        {\small \textcolor{emorywhite}{\insertauthor}}
+        
+        \vspace{0.3cm}
+        
+        {\footnotesize \textcolor{emorywhite}{\insertdate}}
+        
+        \vspace{0.8cm}
+        
+        {\small \textcolor{emorywhite}{\insertinstitute}}
+    \end{centering}
+\end{frame}
+
+% ---- Table of Contents ----
+\begin{frame}{Outline}
+    \tableofcontents[hideallsubsections]
+\end{frame}
+
+\section{Introduction}
+
+\begin{frame}{Regularized Low-Rank Matrix Factorization}
+    Low-rank matrix factorization is a technique that decomposes a large matrix $M \in \Real^{m \times n}$ into a product of two smaller matrices:
+    \[M \approx U V^T\]
+
+where $U \in \Real^{m \times r}$ and $V \in \Real^{n \times r}$, with $r \ll \min(m, n)$ being the rank of the factorization.
+
+\vspace{0.25cm}
+
+\textbf{Core Problem:}
+    \[
+    \min_{U, V} 
+    f(U, V) = \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)
+    \]
+
+    where:
+\begin{itemize}
+    \item $U \in \Real^{m \times r}$ and $V \in \Real^{n \times r}$ are factor matrices; $M \in \Real^{m \times n}$ is the observed matrix 
+    \item $\|\cdot\|_F$ denotes the Frobenius norm: $\|A\|_F = \sqrt{\sum_{i} \sum_j a_{ij}^2}$
+    \item First term penalizes the difference between $UV^T$ and $M$
+    \item Second term involves the ridge regularization parameter $\lambda \geq 0$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Problem Formulation}
+
+    \textbf{Main Question:} How do GD, L-BFGS, and ALS behave on dense vs.\ sparse regularized matrix factorization?
+
+\vspace{0.25cm}
+
+\textbf{Optimization Methods: }
+\begin{itemize}
+  \item \textbf{Gradient Descent (GD) + Armijo backtracking}: simple first-order baseline, stable but slow near minima 
+  \item \textbf{L-BFGS}: quasi-Newton method with limited memory, fast local superlinear convergence
+  \item \textbf{Alternating Least Squares (ALS)}:  block coordinate descent with closed-form updates, natural for observed-entry sparse data
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Key Difference:} Dense $M$ (full $\Omega$) vs.\ sparse $M$ (few observed entries) changes gradient computation costs and convergence behavior.
+
+\end{frame}
+
+\begin{frame}{Problem Properties}
+
+\textbf{Problem Characteristics:}
+\begin{itemize}
+    \item \textbf{Non-convexity}: Objective function is jointly non-convex in $(U, V)$; but convex in $U$ and $V$ individually when fixing the other.
+    \item \textbf{L-smoothness}: Gradient is Lipschitz continuous, guarantee convergence for gradient-based methods under appropriate step sizes.
+    \item \textbf{Multiple stationary points}: Local minima exist, but in practice they often yield comparable reconstruction quality.
+    \item \textbf{Lipschitz constant bound}: $L \leq \sigma_{\max}(M)^2 + \lambda$ ($\sigma_{\max}(M)$ is the largest singular value).
+\end{itemize}
+
+\vspace{0.25cm}
+
+    \textbf{Regularization Trade-off:}
+    \begin{itemize}
+        \item $\lambda \to 0$: The model fits noise, leaing to high test error (overfitting)
+        \item $\lambda$ optimal: Balances fitting signal and regularization, achieving best generalization 
+        \item $\lambda \to \infty$: Excessive regularization causes poor reconstruction (underfitting)
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Dense and Sparse Formulations}
+
+\textbf{Dense objective (Superconductivity, Synthetic-dense):}
+\[
+f(U,V)
+= \frac{1}{2}\lVert UV^T - M\rVert_F^2
++ \frac{\lambda}{2}\bigl(\lVert U\rVert_F^2 + \lVert V\rVert_F^2\bigr)
+\]
+
+\vspace{0.3cm}
+
+\textbf{Sparse objective (MovieLens 100K, Synthetic-sparse):}
+\[
+f(U,V)
+= \frac{1}{2}\sum_{(i,j)\in\Omega}\bigl(u_i^T v_j - M_{ij}\bigr)^2
++ \frac{\lambda}{2}\bigl(\lVert U\rVert_F^2 + \lVert V\rVert_F^2\bigr)
+\]
+
+\vspace{0.2cm}
+\footnotesize
+For MovieLens, the final tuned sparse model additionally includes user/item bias terms in the prediction function.
+
+\end{frame}
+
+% ============================================================================
+\section{Optimization Methods}
+% ============================================================================
+
+\begin{frame}{Method 1: Gradient Descent with Armijo Backtracking}
+
+\textbf{Update Rule:} Gradient descent with line search
+
+$$U_{k+1} = U_k - \alpha_k \nabla_U f(U_k, V_k), \quad 
+V_{k+1} = V_k - \alpha_k \nabla_V f(U_k, V_k)$$
+
+\vspace{0.3cm}
+
+\textbf{Gradient Formulation (Dense):}
+$$\nabla_U f = (UV^T - M)V + \lambda U, \quad
+\nabla_V f = (UV^T - M)^T U + \lambda V$$
+
+\vspace{0.3cm}
+\textbf{Gradient Formulation (Sparse):}
+\[
+\nabla_{u_i} f
+=
+\sum_{j:(i,j)\in\Omega}\left(u_i^\top v_j - M_{ij}\right)v_j + \lambda u_i,
+\qquad
+\nabla_{v_j} f
+=
+\sum_{i:(i,j)\in\Omega}\left(u_i^\top v_j - M_{ij}\right)u_i + \lambda v_j
+\]
+
+
+\vspace{0.3cm}
+
+\textbf{Takeaway:} GD is the simplest and most stable baseline.
+\end{frame}
+
+\begin{frame}{Method 1: Gradient Descent with Armijo Backtracking}
+
+\textbf{Armijo Line Search:} Backtracking until sufficient decrease
+
+\begin{itemize}
+    \item Start with $\alpha = 1$
+    \item If condition fails: $\alpha \leftarrow \beta \cdot \alpha$ (typical $\beta = 0.5$)
+    \item Continue until: $f(\theta - \alpha \nabla f) \leq f(\theta) - c \alpha \|\nabla f\|^2$
+    \item Constant: $c = 10^{-4}$ (default)
+\end{itemize}
+
+\vspace{0.4cm}
+
+\textbf{Convergence Behavior:}
+
+\begin{itemize}
+    \item Armijo backtracking guarantees sufficient decrease in the objective at each accepted step.
+    \item For our non-convex matrix factorization problem, GD typically converges to a stationary point rather than guaranteeing a global optimum.
+    \item In this project, GD is mainly used as a stable and interpretable baseline across different datasets.
+\end{itemize}
+
+\vspace{0.4cm}
+
+\textbf{Takeaway:} GD with Armijo backtracking provides monotone objective decrease and adaptive step-size control, making it a reliable baseline for comparing dense and sparse data experiments.
+
+\end{frame}
+
+\begin{frame}{Method 2: L-BFGS (Quasi-Newton Method)}
+    \textbf{Quasi-Newton Idea:} Approximate the Hessian (or its inverse) using past gradient differences, avoiding explicit computation of \(\nabla^2 f\).
+
+    \vspace{0.2cm}
+    \textbf{Update Rule:}
+    \[
+    x_{k+1} = x_k - \alpha_k H_k \nabla f(x_k),
+    \qquad H_k \approx \bigl(\nabla^2 f(x_k)\bigr)^{-1}
+    \]
+
+    \vspace{0.2cm}
+    \textbf{Curvature Pairs:} 
+    \[
+    s_k = x_{k+1} - x_k, \qquad
+    y_k = \nabla f(x_{k+1}) - \nabla f(x_k)
+    \]
+    These capture local curvature information along the search direction.
+
+\vspace{0.2cm}
+    \textbf{Limited Memory:}
+    \begin{itemize}
+        \item Stores only the most recent \(m\) curvature pairs \(\{(s_i, y_i)\}\) (typically \(m = 5\)–\(20\)).
+        \item Discards older pairs – adapts to changing curvature.
+    \end{itemize}
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{Method 2: L-BFGS (Quasi-Newton Method)}
+
+    \vspace{0.2cm}
+    \textbf{Two-Loop Recursion:}
+    \begin{itemize}
+        \item Computes the search direction \(p_k = -H_k \nabla f(x_k)\) without forming \(H_k\) explicitly.
+        \item Uses the stored pairs to sequentially update an initial diagonal approximation.
+    \end{itemize}
+
+    \vspace{0.2cm}
+    \textbf{Line Search:}
+    \begin{itemize}
+        \item Step length \(\alpha_k\) is chosen via backtracking conditions to ensure sufficient decrease.
+        \item Guarantees stability and convergence for non-convex problems.
+    \end{itemize}
+
+    \vspace{0.2cm}
+    \textbf{Takeaway:} L-BFGS efficiently exploits curvature information from a short history, making it suitable for large-scale optimization where storing the full Hessian is infeasible.
+\end{frame}
+
+
+
+
+\begin{frame}{Method 3: Alternating Least Squares (ALS)}
+
+\textbf{Core Idea:} Alternately fix one factor matrix and solve for the other exactly (closed form).
+
+\vspace{0.2cm}
+\textbf{Fix $V$, optimize $U$:}
+\[
+\min_U \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}\|U\|_F^2
+\]
+Solution:
+\[
+U = M V (V^T V + \lambda I)^{-1}
+\]
+
+\vspace{0.2cm}
+\textbf{Fix $U$, optimize $V$:}
+\[
+\min_V \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}\|V\|_F^2
+\]
+Solution:
+\[
+V = M^T U (U^T U + \lambda I)^{-1}
+\]
+
+\vspace{0.2cm}
+\textbf{Iteration:} Repeat the two updates until convergence.  
+
+\end{frame}
+
+
+
+
+
+
+\begin{frame}{Method 3: Alternating Least Squares (ALS)}
+\textbf{Sparse Data Handling (partially observed \(M\))}
+
+\[
+\min_{U,V}
+\frac12\sum_{(i,j)\in\Omega}\left(M_{ij}-u_i^\top v_j\right)^2
++\frac{\lambda}{2}\left(\|U\|_F^2+\|V\|_F^2\right)
+\]
+
+\begin{itemize}
+    \item For sparse data, we fit only the observed entries \((i,j)\in\Omega\).
+    \item Fix \(V\), and update each row factor \(u_i\) separately.
+    \item Let
+    \[
+    \Omega_i=\{j:(i,j)\in\Omega\}
+    \]
+    be the observed columns in row \(i\).
+    \item Then \(u_i\) is updated by solving
+    \[
+    \min_{u_i}\;
+    \frac12\sum_{j\in\Omega_i}\left(M_{ij}-u_i^\top v_j\right)^2
+    +\frac{\lambda}{2}\|u_i\|_2^2.
+    \]
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Method 3: ALS for Sparse Data (continued)}
+\textbf{Closed-form row update:}
+\[
+u_i=
+\left(V_{\Omega_i}^\top V_{\Omega_i}+\lambda I\right)^{-1}
+V_{\Omega_i}^\top M_{i,\Omega_i}.
+\]
+
+\vspace{0.2cm}
+\textbf{Similarly, for each column \(j\):}
+\[
+\Omega^j=\{i:(i,j)\in\Omega\}
+\]
+and
+\[
+v_j=
+\left(U_{\Omega^j}^\top U_{\Omega^j}+\lambda I\right)^{-1}
+U_{\Omega^j}^\top M_{\Omega^j,j}.
+\]
+
+\begin{itemize}
+    \item Missing entries are ignored directly, so no imputation is needed.
+    \item ALS alternates between row-wise and column-wise updates until convergence.
+\end{itemize}
+
+\textbf{Takeaway:}
+ALS naturally handles sparse matrix completion by using only observed entries.
+\end{frame}
+
+
+\begin{frame}{Method 3: Alternating Least Squares (ALS)}
+
+
+\vspace{0.2cm}
+\textbf{Convergence:}
+\begin{itemize}
+    \item ALS monotonically decreases the objective (block-coordinate descent).
+    \item Converges to a stationary point (often a local minimum).
+    \item Can be sensitive to initialization.
+\end{itemize}
+
+\vspace{0.2cm}
+\textbf{Takeaway:} ALS is a robust block-coordinate method for sparse matrix completion, with closed-form updates and quadratic convergence in each subproblem.
+\end{frame}
+
+
+
+
+\begin{frame}{Method Comparison: Complexity \& Convergence}
+
+\setlength{\tabcolsep}{3.2pt}
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Characteristic} & \textbf{GD} & \textbf{L-BFGS} & \textbf{ALS} \\
+\hline
+Type & First-order & Quasi-Newton & Block coordinate descent \\
+\hline
+Cost (sparse) & $O(\text{nnz} \cdot r)$ & $O(\text{nnz} \cdot r + m r)$ & $O(\text{nnz} \cdot r^2)$ \\
+\hline
+Cost (dense) & $O(n m r)$ & $O(n m r + m r)$ & $O((n+m) r^3 + n m r^2)$ \\
+\hline
+Local rate & Linear (strong conv.) & \parbox{3.7cm}{\centering Linear ($m$ fixed) \\ Superlinear ($m$ grows) } & Linear (local strong conv.) \\
+\hline
+Global rate & Sublinear $O(1/k)$ & Sublinear $O(1/k)$ & Sublinear $O(1/k)$ \\
+\hline
+Memory & $O((n+m)r)$ & $O((n+m)r + m r)$ & $O((n+m)r)$ \\
+\hline
+Guarantee & Stationary point & Stationary point & Stationary point \\
+\hline
+\end{tabular}
+\end{table}
+
+\vspace{0.15cm}
+\textbf{Notes:} $r$ = rank, $m$ = L-BFGS memory size ($\approx 10$), nnz = number of observed entries.
+
+\end{frame}
+
+\begin{frame}{Observed Trade-offs: Experimental Summary}
+
+\textbf{1. GD:}
+    \begin{itemize}
+        \item Stable across all problems (baseline), simple to implement with Armijo backtracking
+        \item Slow to reach high accuracy due to sublinear convergence
+    \end{itemize}
+
+        \vspace{0.15cm}
+        
+\textbf{2. L-BFGS:} 
+    \begin{itemize}
+        \item Fastest on dense synthetic problems, but performance slightly degrades on sparse data
+        \item Benefits from curvature approximation without storing full Hessian
+    \end{itemize}
+    
+    \vspace{0.15cm}
+    
+    \textbf{3. ALS:}
+    \begin{itemize}
+        \item Monotonic improvement (guaranteed decrease), effective for sparse matrix
+        \item Handles missing entries without imputation or dense matrix operations
+        \item $O(r^2)$ factor in per-iteration cost hurts for large rank $r > 100$
+    \end{itemize}
+
+\vspace{0.25cm}
+\textbf{Insight:} No single method dominates, depending on rank and sparsity.
+
+\end{frame}
+
+% ============================================================================
+\section{Experimental Setup}
+% ============================================================================
+
+\begin{frame}{Experimental Setup}
+\textbf{Comparison Protocol}
+\begin{itemize}
+  \item Same rank \& initialization across methods \item Records objective value, iterations, and runtime for each method 
+  \item Synthetic datasets are compared to the clean ground-truth matrix
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Dataset-specific metrics}
+\begin{itemize}
+    \item \textbf{Synthetic}: objective + recovery error
+    \item \textbf{MovieLens}: train/test RMSE
+    \item \textbf{Superconductivity}: objective + reconstruction error
+\end{itemize}
+
+\vspace{0.2cm}
+
+\textbf{Hyperparameters}
+\begin{itemize}
+  \item Dense and synthetic experiments use $\lambda = 0.01$
+  \item MovieLens tuned values: $r = 3$, \ $\lambda = 2.0$, \ $\lambda_{\text{bias}} = 0.1$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Special Case: MovieLens Dataset}
+
+\textbf{Extended Prediction Function:}
+\[
+\hat r_{ij} = \mu + b_i + c_j + u_i^\top v_j
+\]
+
+\textbf{Regularized Objective:}
+\[
+\min \; \frac{1}{2}\sum_{(i,j)\in\Omega}(\hat r_{ij}-r_{ij})^2
++ \frac{\lambda}{2}(\|U\|_F^2+\|V\|_F^2)
++ \frac{\lambda_{\text{bias}}}{2}(\|b\|_2^2+\|c\|_2^2)
+\]
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item $\mu + b_i + c_j$: interpretable baseline (user/item biases)
+    \item $u_i^\top v_j$: collaborative filtering residual
+    \item Standard matrix factorization recovered if $\lambda_{\text{bias}} \to \infty$ (biases $\to 0$)
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Datasets and Main Experiments}
+    
+    \begin{table}[h]
+    \centering
+    \renewcommand{\arraystretch}{1.3}
+    \small
+    \begin{tabular}{|l|c|c|c|l|}
+    \hline
+    \textbf{Dataset} & \textbf{Size} & \textbf{Sparsity} & \textbf{Type} & \textbf{Purpose} \\
+    \hline
+    Synthetic-dense & $500 \times 200$ & 0\% & Dense & Controlled, ground truth \\
+    \hline
+    Synthetic-sparse & $500 \times 200$ & masked & Sparse & Low-rank signal with missing entries \\
+    \hline
+    MovieLens 100K & $943 \times 1682$ & 93.7\% & Sparse & Recommender systems \\
+    \hline
+    Superconductivity & $21263 \times 81$ & 0\% & Dense & Feature reduction \\
+    \hline
+    \end{tabular}
+    \end{table}
+    
+    \vspace{0.25cm}
+
+    \textbf{Main experiments}
+    \begin{itemize}
+        \item Method comparison across datasets
+        \item Rank sensitivity
+        \item Regularization sensitivity under heavier noise
+    \end{itemize}
+
+\end{frame}
+
+
+% ============================================================================
+\section{Results}
+% ============================================================================
+
+\begin{frame}{Method Comparison: Experimental Results}
+
+\small
+\textbf{Setup:} Same initialization across methods. Fixed ranks: $5$ (synthetic), $3$ (MovieLens), $10$ (superconductivity). Compare final error and iterations within each dataset.
+
+\vspace{0.12cm}
+\centering
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.05}
+
+\begin{columns}[T,onlytextwidth]
+\column{0.5\textwidth}
+\centering
+{\scriptsize \textbf{Synthetic-dense} (recovery error)}
+
+\vspace{0.03cm}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Error} & \textbf{Iter.} \\
+\midrule
+GD & 0.00815 & 250 \\
+L-BFGS & 0.00815 & 66 \\
+ALS & 0.00815 & 250 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.16cm}
+{\scriptsize \textbf{MovieLens} (test RMSE)}
+
+\vspace{0.03cm}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{RMSE} & \textbf{Iter.} \\
+\midrule
+GD & 0.9418 & 250 \\
+L-BFGS & 0.9361 & 250 \\
+ALS & 0.9363 & 250 \\
+\bottomrule
+\end{tabular}
+
+\column{0.5\textwidth}
+\centering
+{\scriptsize \textbf{Synthetic-sparse} (recovery error)}
+
+\vspace{0.03cm}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Error} & \textbf{Iter.} \\
+\midrule
+GD & 0.02012 & 250 \\
+L-BFGS & 0.02011 & 98 \\
+ALS & 0.02015 & 250 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.16cm}
+{\scriptsize \textbf{Superconductivity} (recon. error)}
+
+\vspace{0.03cm}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Error} & \textbf{Iter.} \\
+\midrule
+GD & 0.3532 & 250 \\
+L-BFGS & 0.3524 & 250 \\
+ALS & 0.3524 & 250 \\
+\bottomrule
+\end{tabular}
+\end{columns}
+
+\vspace{0.12cm}
+\footnotesize
+\textbf{Takeaway:} Compare methods within each table only. \\ 
+
+All three reach strong solutions, and L-BFGS is fastest on synthetic data.
+\end{frame}
+
+
+\begin{frame}{Rank Sensitivity}
+
+\scriptsize
+\textbf{Setup}
+\begin{itemize}
+    \item Synthetic ranks: $\{2,3,5,8,10,20\}$
+    \item MovieLens ranks: $\{3,5,8,10,20\}$
+    \item Superconductivity ranks: $\{2,5,10,20,40,60\}$
+\end{itemize}
+
+\vspace{0.08cm}
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_3/synthetic_dense/reconstruction_error_vs_rank.png}
+
+\vspace{0.04cm}
+{\scriptsize Synthetic-dense}
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_3/movielens_100k/reconstruction_error_vs_rank.png}
+
+\vspace{0.04cm}
+{\scriptsize MovieLens 100K (test RMSE)}
+\end{columns}
+
+\vspace{0.08cm}
+\begin{table}[h]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.10}
+\begin{tabular}{|l|c|l|}
+\hline
+\textbf{Dataset} & \textbf{Best rank} & \textbf{Interpretation} \\
+\hline
+Syn.-dense & 5 & matches true rank \\
+\hline
+Syn.-sparse & 5 & same signal under masking \\
+\hline
+MovieLens & 3 & larger rank overfits \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\end{frame}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{frame}{Real Dense Case: Superconductivity}
+\scriptsize
+\begin{columns}[T]
+\column{0.49\textwidth}
+\textbf{Setup}
+\begin{itemize}
+    \item Dense real feature matrix with standardized columns
+    \item Rank sweep across all three methods
+    \item Goal: approximation and structure extraction, not exact recovery
+\end{itemize}
+
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_3/superconductivity/singular_value_decay.png}
+
+\vspace{0.05cm}
+{\scriptsize Singular value decay}
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_3/superconductivity/reconstruction_error_vs_rank.png}
+
+\vspace{0.05cm}
+{\scriptsize Reconstruction error vs.\ rank}
+
+\vspace{0.12cm}
+\begin{table}[h]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Rank} & \textbf{Best reconstruction error} \\
+\hline
+10 & 0.352 \\
+\hline
+20 & 0.175 \\
+\hline
+40 & 0.062 \\
+\hline
+60 & 0.0217 \\
+\hline
+\end{tabular}
+\end{table}
+\end{columns}
+
+\vspace{0.1cm}
+\textbf{Takeaway:} Superconductivity is not exactly low-rank, but it is clearly compressible.
+\end{frame}
+
+
+
+\begin{frame}{Regularization Sensitivity}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\textbf{Setup}
+\begin{itemize}
+    \item Noisier synthetic data with $\sigma = 0.5$
+    \item Rank fixed at $5$
+    \item Sweep $\lambda$ from $10^{-4}$ to $1$
+\end{itemize}
+
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_4/recovery_error_vs_lambda.png}
+
+\vspace{0.05cm}
+{\scriptsize Recovery error vs.\ $\lambda$}
+
+\column{0.49\textwidth}
+\centering
+\includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{final_full_4datasets/experiment_4/training_objective_vs_lambda.png}
+
+\vspace{0.05cm}
+{\scriptsize Training objective vs.\ $\lambda$}
+
+\vspace{0.12cm}
+\begin{table}[h]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Observation} & \textbf{Interpretation} \\
+\hline
+small $\lambda$ & weaker regularization \\
+\hline
+large $\lambda$ & higher training objective \\
+\hline
+overall effect & milder than rank / init \\
+\hline
+\end{tabular}
+\end{table}
+\end{columns}
+
+\vspace{0.1cm}
+\textbf{Takeaway:} Regularization matters, but in our experiments its visible effect was weaker than rank selection and initialization.
+\end{frame}
+
+% ============================================================================
+\section{Conclusions}
+% ============================================================================
+
+\begin{frame}{Main Conclusions}
+    
+\begin{enumerate}
+    \item \textbf{All three methods work well when the low-rank model matches the data.}
+    \begin{itemize}
+        \item On synthetic data, all methods recover the rank-5 structure well
+        \item L-BFGS is the fastest on dense synthetic experiments
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    
+    \item \textbf{Rank selection and initialization affect final quality more than optimizer choice.}
+    \begin{itemize}
+        \item Synthetic data is best at the true rank
+        \item SVD initialization consistently improves convergence
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    
+    \item \textbf{For MovieLens, a tuned small-rank sparse model gives the best generalization.}
+    \begin{itemize}
+        \item Best test RMSE occurs near rank 3
+        \item Larger rank overfits and worsens held-out performance
+    \end{itemize}
+\end{enumerate}
+\end{frame}
+
+% ---- Thank You Slide ----
+\begin{frame}[plain]
+    \begin{tikzpicture}[remember picture, overlay]
+        % Background
+        \fill[emoryblue] (current page.south west) rectangle (current page.north east);
+        
+        % Gold accent bar
+        \fill[emorygold] (current page.south west) rectangle (current page.south east + (0, 0.5));
+    \end{tikzpicture}
+    
+    \vspace{1.5cm}
+    
+    \begin{centering}
+        {\Large \textcolor{emorywhite}{\textbf{Thank You!}}}
+        
+        \vspace{0.6cm}
+        
+        {\normalsize \textcolor{emorygold}{Q \& A}}
+        
+        \vspace{1.2cm}
+        
+        {\small \textcolor{emorywhite}{Nicole Chen \quad Joy Cheng \quad Michelle Li}}
+        
+        \vspace{0.3cm}
+        
+        {\footnotesize \textcolor{emorywhite}{MATH 347, Spring 2026}} \\ 
+        
+    \end{centering}
+\end{frame}
+
+
+\appendix
+
+\begin{frame}{Appendix: Initialization and Nonconvexity}
+
+\begin{columns}[T]
+\column{0.49\textwidth}
+\textbf{Initialization setup}
+\begin{itemize}
+    \item Compare small random, large random, and SVD initialization
+    \item Same rank and same method settings across starts
+\end{itemize}
+
+\centering
+\includegraphics[width=\linewidth,height=0.23\textheight,keepaspectratio]{final_full_4datasets/experiment_2/initialization_summary.png}
+
+\vspace{0.05cm}
+{\scriptsize Initialization summary}
+
+\column{0.49\textwidth}
+\textbf{Landscape setup}
+\begin{itemize}
+    \item Interpolate between two converged GD solutions
+    \item Evaluate the objective along the line segment
+\end{itemize}
+
+\centering
+\includegraphics[width=\linewidth,height=0.23\textheight,keepaspectratio]{final_full_4datasets/experiment_5/line_segment_landscape.png}
+
+\vspace{0.05cm}
+{\scriptsize Line-segment landscape}
+\end{columns}
+
+\vspace{0.12cm}
+\begin{table}[h]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Experiment} & \textbf{Key result} \\
+\hline
+Initialization & SVD initialization is best across methods \\
+\hline
+Initialization & L-BFGS is least sensitive; ALS is most sensitive to poor starts \\
+\hline
+Landscape & Objective rises from $\sim 5\times 10^2$ to $>9\times 10^4$ along the segment \\
+\hline
+\end{tabular}
+\end{table}
+
+\vspace{0.1cm}
+\textbf{Takeaway:} Nonconvexity is real, but good initialization makes the problem manageable in practice.
+\end{frame}
+
+\begin{frame}{Appendix: Recovery Error vs. Rank}
+
+\centering
+\includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{final_full_4datasets/experiment_3/synthetic_sparse/reconstruction_error_vs_rank.png}
+
+\vspace{0.05cm}
+{\scriptsize Synthetic-sparse rank curve}
+\end{frame}
+
+
+\begin{frame}{Appendix: GD Convergence ($L$-smooth case)}
+
+\textbf{Assumption:} $f$ is $L$-smooth (gradient Lipschitz):
+\[
+\|\nabla f(x) - \nabla f(y)\| \leq L \|x - y\|
+\]
+
+\textbf{Descent Lemma:} For any step size $\alpha_k$,
+\[
+f(x_{k+1}) \leq f(x_k) - \alpha_k \|\nabla f(x_k)\|^2 + \frac{L}{2}\alpha_k^2 \|\nabla f(x_k)\|^2
+\]
+
+\textbf{Choose step size:} $\alpha_k = \frac{1}{L}$. Then the quadratic term cancels:
+\[
+f(x_{k+1}) \leq f(x_k) - \frac{1}{2L} \|\nabla f(x_k)\|^2
+\]
+
+\textbf{Convergence rate (sublinear):} Summing telescopically,
+\[
+\min_{k \le T} \|\nabla f(x_k)\|^2 \leq \frac{2L\big(f(x_0) - f^*\big)}{T} = O\left(\frac{1}{T}\right)
+\]
+
+Sublinear convergence to a stationary point; possibly slow near flat regions.
+\end{frame}
+
+\begin{frame}{Appendix: L-BFGS Convergence}
+
+\textbf{Assumptions:}
+\begin{itemize}
+    \item $f$ twice continuously differentiable
+    \item $\nabla^2 f(x^*)$ positive definite (local strong convexity)
+\end{itemize}
+
+\textbf{Local convergence rate:}
+\[
+\|x_{k+1} - x^*\| \leq C \|x_k - x^*\|^{1+\epsilon}, \quad \epsilon > 0
+\]
+i.e., \textbf{superlinear} (faster than linear, slower than quadratic).
+
+\textbf{Requirements:}
+\begin{itemize}
+    \item Good initialization (within neighborhood of $x^*$)
+    \item Limited memory $m$ sufficiently large (but $m \ge 5$ often enough)
+\end{itemize}
+
+Rapid local convergence once curvature is well approximated, without storing the full Hessian.
+
+\end{frame}
+
+\begin{frame}{Appendix: ALS Convergence}
+
+\textbf{Structure:} Block coordinate descent on $(U, V)$ with $M$ partially observed.
+
+\textbf{Each step:} solves a convex subproblem (strongly convex due to regularization $\lambda > 0$ 
+\[
+U^{k+1} = \arg\min_U f(U, V^k), \quad
+V^{k+1} = \arg\min_V f(U^{k+1}, V)
+\]
+
+\textbf{Monotonicity:}
+\[
+f(U^{k+1}, V^{k+1}) \leq f(U^{k+1}, V^k) \leq f(U^k, V^k)
+\]
+
+\textbf{Convergence:}
+\begin{itemize}
+    \item Objective decreases monotonically at every block update
+    \item Converges to a stationary point, no global optimality guarantee
+\end{itemize}
+
+Sublinear convergence ($O(1/k)$) to a stationary point under mild conditions; can be linear if the objective is strongly convex in each block. 
+
+\end{frame}
+
+\begin{frame}{Appendix: Stationary Point Characterization}
+
+\textbf{Stationary point condition:} First-order necessary conditions for a local minimum in smooth unconstrained optimization.
+\[
+\nabla_U f(U^*, V^*) = 0, \quad \nabla_V f(U^*, V^*) = 0
+\]
+
+\textbf{Explicit gradients:} regularized least-squares with regularization term $\lambda > 0$
+\[
+(UV^T - M)V + \lambda U = 0
+\]
+\[
+(UV^T - M)^T U + \lambda V = 0
+\]
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item All three methods (GD, L-BFGS, ALS) converge to solutions satisfying these conditions.
+    \item Solutions may be local minima, saddle points, or (rarely) local maxima.
+    \item No method guarantees global optimality for this non-convex problem.
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Appendix: Dense Gradient Derivation}
+\[
+f(U,V)=\frac12\|UV^\top-M\|_F^2+\frac{\lambda}{2}\left(\|U\|_F^2+\|V\|_F^2\right)
+\]
+Let \(E=UV^\top-M\). Then
+\[
+\nabla_U \frac12\|E\|_F^2 = EV=(UV^\top-M)V,
+\qquad
+\nabla_V \frac12\|E\|_F^2 = E^\top U=(UV^\top-M)^\top U.
+\]
+Also,
+\[
+\nabla_U \frac{\lambda}{2}\|U\|_F^2=\lambda U,
+\qquad
+\nabla_V \frac{\lambda}{2}\|V\|_F^2=\lambda V.
+\]
+So
+\[
+\nabla_U f=(UV^\top-M)V+\lambda U,
+\qquad
+\nabla_V f=(UV^\top-M)^\top U+\lambda V.
+\]
+\end{frame}
+
+\begin{frame}{Appendix: Sparse Gradient Derivation}
+\[
+f(U,V)=\frac12\sum_{(i,j)\in\Omega}(u_i^\top v_j-M_{ij})^2
++\frac{\lambda}{2}\left(\|U\|_F^2+\|V\|_F^2\right)
+\]
+
+For fixed \(u_i\),
+\[
+\nabla_{u_i} f
+=
+\sum_{j:(i,j)\in\Omega}
+\frac{\partial}{\partial u_i}
+\frac12 (u_i^\top v_j-M_{ij})^2
++\lambda u_i
+=
+\sum_{j:(i,j)\in\Omega}(u_i^\top v_j-M_{ij})v_j+\lambda u_i.
+\]
+
+For fixed \(v_j\),
+\[
+\nabla_{v_j} f
+=
+\sum_{i:(i,j)\in\Omega}
+\frac{\partial}{\partial v_j}
+\frac12 (u_i^\top v_j-M_{ij})^2
++\lambda v_j
+=
+\sum_{i:(i,j)\in\Omega}(u_i^\top v_j-M_{ij})u_i+\lambda v_j.
+\]
+\end{frame}
+
+
+\begin{frame}{Appendix: Full BFGS Update}
+Define
+\[
+\rho_k=\frac{1}{y_k^\top s_k}.
+\]
+
+The inverse-BFGS update is
+\[
+H_{k+1}
+=
+(I-\rho_k s_k y_k^\top)\,H_k\,(I-\rho_k y_k s_k^\top)
++\rho_k s_k s_k^\top.
+\]
+
+This update is designed so that:
+\begin{itemize}
+\item \(H_{k+1}\) is symmetric,
+\item \(H_{k+1}\) stays positive definite if \(y_k^\top s_k>0\),
+\item the secant condition holds:
+\[
+H_{k+1}y_k=s_k.
+\]
+\end{itemize}
+
+Then the search direction is
+\[
+p_k=-H_k\nabla f(x_k).
+\]
+\end{frame}
+
+\begin{frame}{Appendix: Two-Loop Recursion}
+Let
+\[
+g_k=\nabla f(x_k),
+\qquad
+\rho_i=\frac{1}{y_i^\top s_i}.
+\]
+
+We compute \(p_k=-H_k g_k\) as follows.
+
+\textbf{Backward loop:}
+\[
+q=g_k.
+\]
+For \(i=k-1,k-2,\dots,k-m\):
+\[
+\alpha_i=\rho_i s_i^\top q,
+\qquad
+q\leftarrow q-\alpha_i y_i.
+\]
+
+\textbf{Initial scaling:}
+\[
+H_k^{(0)}=\gamma_k I,
+\qquad
+\gamma_k=\frac{s_{k-1}^\top y_{k-1}}{y_{k-1}^\top y_{k-1}},
+\]
+and set
+\[
+r=H_k^{(0)}q.
+\]
+
+\textbf{Forward loop:}
+For \(i=k-m,\dots,k-1\):
+\[
+\beta_i=\rho_i y_i^\top r,
+\qquad
+r\leftarrow r+s_i(\alpha_i-\beta_i).
+\]
+
+Then
+\[
+p_k=-r.
+\]
+\end{frame}
+
+
+\begin{frame}{Appendix: How the L-BFGS Two-Loop Recursion Works}
+\begin{center}
+    \includegraphics[width=0.65
+    \textwidth]{l_bfgs_two_loop_recursion_flowchart.png}
+\end{center}
+
+\vspace{0.15cm}
+\footnotesize
+\textbf{Key idea:} 
+\end{frame}
+
+
+\begin{frame}{Appendix: Dense ALS Derivation}
+\[
+f(U,V)=\frac12\|M-UV^\top\|_F^2+\frac{\lambda}{2}\left(\|U\|_F^2+\|V\|_F^2\right)
+\]
+
+Fix \(V\):
+\[
+\nabla_U f=(UV^\top-M)V+\lambda U=0
+\]
+\[
+UV^\top V-MV+\lambda U=0
+\]
+\[
+U(V^\top V+\lambda I)=MV
+\]
+\[
+U=MV(V^\top V+\lambda I)^{-1}
+\]
+
+Fix \(U\):
+\[
+\nabla_V f=(UV^\top-M)^\top U+\lambda V=0
+\]
+\[
+V(U^\top U+\lambda I)=M^\top U
+\]
+\[
+V=M^\top U(U^\top U+\lambda I)^{-1}
+\]
+\end{frame}
+
+
+\begin{frame}{Appendix: Sparse ALS Update for \(u_i\)}
+\small
+Fix \(V\). For row \(i\), let
+\[
+\Omega_i=\{j:(i,j)\in\Omega\}.
+\]
+
+Then the subproblem is
+{\footnotesize
+\[
+\min_{u_i}\;
+\frac12\sum_{j\in\Omega_i}(M_{ij}-u_i^\top v_j)^2
++\frac{\lambda}{2}\|u_i\|_2^2.
+\]
+}
+
+Set the gradient to zero:
+{\footnotesize
+\[
+\sum_{j\in\Omega_i}(u_i^\top v_j-M_{ij})v_j+\lambda u_i=0.
+\]
+}
+
+Rearrange:
+{\footnotesize
+\[
+\left(\sum_{j\in\Omega_i} v_jv_j^\top+\lambda I\right)u_i
+=
+\sum_{j\in\Omega_i} M_{ij}v_j.
+\]
+}
+
+Therefore,
+{\footnotesize
+\[
+u_i=
+\left(\sum_{j\in\Omega_i} v_jv_j^\top+\lambda I\right)^{-1}
+\left(\sum_{j\in\Omega_i} M_{ij}v_j\right).
+\]
+}
+\end{frame}
+
+
+\begin{frame}{Appendix: Sparse ALS Update for \(v_j\)}
+\small
+Fix \(U\). For column \(j\), let
+\[
+\Omega^j=\{i:(i,j)\in\Omega\}.
+\]
+
+Then the subproblem is
+{\footnotesize
+\[
+\min_{v_j}\;
+\frac12\sum_{i\in\Omega^j}(M_{ij}-u_i^\top v_j)^2
++\frac{\lambda}{2}\|v_j\|_2^2.
+\]
+}
+
+Set the gradient to zero:
+{\footnotesize
+\[
+\sum_{i\in\Omega^j}(u_i^\top v_j-M_{ij})u_i+\lambda v_j=0.
+\]
+}
+
+Rearrange:
+{\footnotesize
+\[
+\left(\sum_{i\in\Omega^j} u_i u_i^\top+\lambda I\right)v_j
+=
+\sum_{i\in\Omega^j} M_{ij}u_i.
+\]
+}
+
+Therefore,
+{\footnotesize
+\[
+v_j=
+\left(\sum_{i\in\Omega^j} u_i u_i^\top+\lambda I\right)^{-1}
+\left(\sum_{i\in\Omega^j} M_{ij}u_i\right).
+\]
+}
+\end{frame}
+
+
+
+
+
+
+
+
+\begin{frame}{Appendix: GD Cost Derivation}
+    \textbf{Sparse case ($\Omega$ observed):}
+    \begin{itemize}
+        \item Compute residual $R_{ij} = U_i V_j^T - M_{ij}$ only for $(i,j)\in\Omega$: $O(\text{nnz} \cdot r)$
+        \item For each $(i,j)$, update $\nabla_{U_i} \mathrel{+}= R_{ij} V_j$: $O(\text{nnz} \cdot r)$
+        \item For each $(i,j)$, update $\nabla_{V_j} \mathrel{+}= R_{ij} U_i$: $O(\text{nnz} \cdot r)$
+        \item Add regularization $\lambda U$, $\lambda V$: $O((n+m)r)$
+        \item \textbf{Total:} $O(\text{nnz} \cdot r)$
+    \end{itemize}
+
+    \vspace{0.2cm}
+    \textbf{Dense case ($\Omega =$ all entries):}
+    \begin{itemize}
+        \item Compute $UV^T$: $O(n m r)$
+        \item Subtract $M$: $O(n m)$
+        \item Multiply by $V$ (for $\nabla_U$): $O(n m r)$
+        \item Multiply by $U$ (for $\nabla_V$): $O(n m r)$
+        \item \textbf{Total:} $O(n m r)$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Appendix: L-BFGS Cost Derivation}
+    \textbf{Per-iteration cost components:}
+    \begin{enumerate}
+        \item Gradient computation: same as GD – $O(\text{nnz} \cdot r)$ (sparse) or $O(n m r)$ (dense)
+        \item Two-loop recursion for direction $p_k$:
+        \[
+        \text{Forward: } q = g_k;\; \text{for } i=k-1,\dots,k-m: \alpha_i = \rho_i s_i^T q,\; q = q - \alpha_i y_i
+        \]
+        \[
+        \text{Backward: } r = H_k^0 q;\; \text{for } i=k-m,\dots,k-1: \beta = \rho_i y_i^T r,\; r = r + s_i(\alpha_i - \beta)
+        \]
+        \item Each loop iteration: $O(r)$ dot products and axpy operations
+        \item Total for two-loop recursion: $O(m_{\text{mem}} \cdot r)$
+        \item Line search (Armijo/Wolfe): additional gradient evaluations
+    \end{enumerate}
+    
+    \vspace{0.1cm}
+    \textbf{Total per iteration:}
+    \[
+    \text{Sparse: } O(\text{nnz} \cdot r + m r), \qquad
+    \text{Dense: } O(n m r + m r)
+    \]
+\end{frame}
+
+\begin{frame}{Appendix: ALS Cost Derivation}
+    \textbf{Update for $U$ (fix $V$):} Solve for each row $u_i$ independently.
+    \[
+    u_i = \left( \sum_{j \in \Omega_i} V_j V_j^T + \lambda I \right)^{-1} \left( \sum_{j \in \Omega_i} M_{ij} V_j \right)
+    \]
+
+    \textbf{Sparse case:}
+\begin{itemize}
+    \item Build Gram matrices: $O(\text{nnz} \cdot r^2)$
+    \item Solve $r \times r$ systems for $U$ and $V$: $O((n+m) r^3)$
+    \item \textbf{Total:} $O(\text{nnz} \cdot r^2 + (n+m) r^3)$
+\end{itemize}
+
+\vspace{0.15cm}
+\textbf{Dense case ($\text{nnz} = nm$):}
+\begin{itemize}
+    \item Compute $V^TV$: $O(m r^2)$, invert: $O(r^3)$
+    \item Compute $MV$: $O(n m r)$, multiply by inverse: $O(n r^2)$
+    \item \textbf{Total:} $O(n m r + (n+m) r^2 + r^3)$
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Resources}
+    
+    \textbf{Software Libraries (Python):}
+    \begin{itemize}
+        \item TensorFlow (\texttt{tf.keras} for models, \texttt{tf.GradientTape} for custom grads)
+        \item PyTorch (\texttt{torch.nn.Module}, \texttt{torch.autograd}, GPU via \texttt{.to(device)})
+        \item scikit-learn (\texttt{StandardScaler}, \texttt{train\_test\_split}, \texttt{mean\_squared\_error})
+        \item scipy.optimize (\texttt{scipy.optimize.minimize(..., method='L-BFGS-B')}.)
+    \end{itemize}
+
+    \vspace{0.3cm}
+    
+    \textbf{Project Implementation:}
+    \begin{itemize}
+        \item Repository: \texttt{github.com/}\ldots\texttt{/math347}
+        \item Core code: \texttt{data.py}, \texttt{methods.py}, \texttt{experiments.py}, \texttt{objectives.py}, \texttt{plotting.py}
+        \item Datasets: Synthetic (dense, sparse), MovieLens 100K, Superconductivity
+        \item Documentation: README.md, FAQ.md 
+    \end{itemize}
+\end{frame}
+
+\end{document}
