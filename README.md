@@ -1,581 +1,188 @@
-# Low-Rank Matrix Factorization (LRMF) Project
+<p align="center">
+  <img src="docs/assets/ranklab-banner.svg" alt="RankLab — Low-Rank Matrix Optimization. Three optimizers, four data settings, five experimental questions." width="100%">
+</p>
 
-**Math 347 Spring 2026 | Emory University**  
-Authors: Nicole Chen, Joy Cheng, Michelle Li
+<div align="center">
 
-This project comprehensively studies low-rank matrix factorization (LRMF) for regularized optimization problems, implementing and comparing three state-of-the-art optimization algorithms across four diverse datasets.
+**A computational study of regularized matrix factorization: how optimization, initialization, and rank shape the result.**
 
-$$\min_{U \in \mathbb{R}^{m \times r}, V \in \mathbb{R}^{n \times r}} f(U, V) = \frac{1}{2}\|UV^T - M\|_F^2 + \frac{\lambda}{2}(\|U\|_F^2 + \|V\|_F^2)$$
+![Python](https://img.shields.io/badge/Python-3.10%2B-4c78a8?style=flat-square&logo=python&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-numerical_computing-368e83?style=flat-square&logo=numpy&logoColor=white)
+![SciPy](https://img.shields.io/badge/SciPy-optimization-8066aa?style=flat-square&logo=scipy&logoColor=white)
+![Course](https://img.shields.io/badge/Emory-MATH_347-c1a765?style=flat-square)
 
----
+[The study](#the-study) · [Results](#what-the-recorded-runs-show) · [Quick start](#quick-start) · [Experiments](#five-experimental-questions) · [Code map](#code-map)
 
-CHECK experiment_1 to experiment_5 for synthetic_sparse data. 
+</div>
 
-## Core Algorithms
+## The study
 
-| Algorithm | Method | Convergence | Best For |
-|-----------|--------|-------------|----------|
-| **GD** | Gradient Descent + Armijo Backtracking | Linear | Stable baseline, pedagogical |
-| **L-BFGS** | Limited-memory Quasi-Newton | Superlinear | Dense data, fewer iterations |
-| **ALS** | Alternating Least Squares | Sublinear | Sparse data, missing values |
+RankLab compares **Gradient Descent with Armijo backtracking**, **L-BFGS**, and **Alternating Least Squares** on one regularized low-rank factorization problem. The implementation handles both dense matrices and partially observed entries, tracking objective values, gradient norms, iterations, runtime, and reconstruction or prediction error.
 
----
+The central question is practical: **when the model is fixed, which differences come from the optimizer—and which come from rank, initialization, or regularization?**
 
-## Four Datasets: Comprehensive Evaluation
+| Optimizer | Update strategy | What the comparison reveals |
+|---|---|---|
+| **GD + Armijo** | Gradient steps with a sufficient-decrease line search | A first-order baseline with explicit step-size control |
+| **L-BFGS** | Limited-memory quasi-Newton updates through SciPy | The role of curvature information in convergence |
+| **ALS** | Alternating regularized least-squares updates | How block structure changes the optimization path |
 
-The project uses **four complementary datasets** to evaluate algorithms across different problem characteristics:
+### One objective, two observation settings
 
-### 1. Synthetic Dense (500 × 200, Dense, Rank 5)
-- **Purpose**: Validate correctness with known ground truth
-- **Structure**: $M = U_{\text{true}} V_{\text{true}}^T + 0.1 \cdot \mathcal{N}(0,1)$
-- **Metrics**: Recovery error to true factors ($U_{\text{true}}, V_{\text{true}}$)
-- **Key insight**: Can algorithms recover the exact low-rank structure?
+For dense data:
 
-### 2. Synthetic Sparse (500 × 200, 80% Sparse, Rank 5) ⭐ NEW
-- **Purpose**: Test sparse handling with **identical signal** to dense version
-- **Structure**: Same rank structure as synthetic dense, but 80% missing entries
-- **Metrics**: Recovery error to clean matrix ($M_{\text{clean}}$)
-- **Key insight**: Does ALS outperform GD/L-BFGS on sparse data? How critical is initialization?
+$$\min_{U,V}\;\frac{1}{2}\lVert UV^\top-M\rVert_F^2+\frac{\lambda}{2}\left(\lVert U\rVert_F^2+\lVert V\rVert_F^2\right).$$
 
-### 3. Superconductivity (21,263 × 81, Dense Real Data)
-- **Purpose**: Evaluate computational efficiency on large-scale dense problems
-- **Source**: UCI ML Repository (464) - 21K superconductor compounds × 81 features
-- **Metrics**: Wall-clock time, iterations, reconstruction error
-- **Key insight**: Which method scales best? Is L-BFGS practical?
+For missing entries, the residual is evaluated only on the observed set $\Omega$:
 
-### 4. MovieLens 100K (943 × 1,682, 93.7% Sparse Real Data)
-- **Purpose**: Validate on realistic production application
-- **Source**: GroupLens MovieLens - user ratings, standard train/test split
-- **Metrics**: Test RMSE on held-out ratings (generalization)
-- **Key insight**: Do algorithms generalize to unseen data? Production readiness?
+$$\min_{U,V}\;\frac{1}{2}\sum_{(i,j)\in\Omega}\left(u_i^\top v_j-M_{ij}\right)^2+\frac{\lambda}{2}\left(\lVert U\rVert_F^2+\lVert V\rVert_F^2\right).$$
 
-### Why Four Datasets?
+Here $M\in\mathbb{R}^{m\times n}$, $U\in\mathbb{R}^{m\times r}$, and $V\in\mathbb{R}^{n\times r}$. The factors are jointly nonconvex but each ALS block is a regularized least-squares subproblem. The experiments measure finite-run behavior; they do not establish global optimality.
 
+## What the recorded runs show
+
+<img src="docs/assets/optimizer-comparison.png" alt="Recorded synthetic dense and sparse runs comparing runtime, iterations, and recovery error for GD, L-BFGS, and ALS." width="100%">
+
+**L-BFGS reaches similar clean-signal recovery with fewer iterations in the archived synthetic comparison.** Dense runs have approximately 0.815% relative recovery error across all three methods; sparse runs have approximately 2.01%. That similarity in recovery does not imply identical regularized objectives or stationarity.
+
+| Data setting | Method | Iterations | Recorded time (s) | Relative recovery error |
+|---|---|---:|---:|---:|
+| Dense | GD | 250 | 0.135 | 0.00815 |
+| Dense | L-BFGS | **66** | **0.038** | 0.00815 |
+| Dense | ALS | 250 | 0.092 | 0.00815 |
+| Sparse | GD | 250 | 1.542 | 0.02012 |
+| Sparse | L-BFGS | **98** | **0.551** | 0.02011 |
+| Sparse | ALS | 250 | 2.764 | 0.02015 |
+
+<sub>Source: the committed [Experiment 1 summary](results/experiment_1/experiment_1_summary.csv). Both synthetic settings use rank 5 and λ = 0.01. These are archived timings, not portable speed guarantees; 250 iterations is the configured cap, not a convergence claim.</sub>
+
+### Rank is a modeling choice, not just a speed setting
+
+<img src="docs/assets/rank-sensitivity.png" alt="Synthetic dense rank sweep: reconstruction error drops sharply as the model reaches the known rank-five signal, with closely overlapping solver curves." width="100%">
+
+Under-specified rank loses signal that no optimizer can recover within that model. In the recorded dense sweep, moving from rank 2 or 3 to the true rank 5 changes reconstruction quality much more than switching optimizers. The curves use the committed [Experiment 3 results](results/experiment_3/experiment_3_summary.csv).
+
+## Five experimental questions
+
+| Study | Variable | Measurements |
+|---|---|---|
+| **01 · Method comparison** | GD, L-BFGS, ALS | Objective, gradient norm, runtime, iterations, and dataset-specific error |
+| **02 · Initialization** | Small random, large random, and SVD starts | Variation in objective and convergence trajectories |
+| **03 · Rank sensitivity** | Factor rank | Reconstruction or held-out prediction error versus model capacity |
+| **04 · Regularization** | Ridge penalty λ | Fit–regularization trade-offs |
+| **05 · Nonconvex probe** | Interpolation between solutions | Objective values along selected line segments |
+
+The landscape experiment is a diagnostic along sampled paths; it does not enumerate local minima.
+
+```mermaid
+flowchart LR
+    A[Dense or observed-entry data] --> B[Regularized factorization]
+    B --> C[GD + Armijo]
+    B --> D[L-BFGS]
+    B --> E[ALS]
+    C --> F[Convergence and error metrics]
+    D --> F
+    E --> F
+    F --> G[Rank / initialization / regularization studies]
 ```
-Dataset              | Controls For          | Algorithm Insight
-─────────────────────┼──────────────────────┼────────────────────────
-Synthetic Dense      | Known solution        | Correctness validation
-Synthetic Sparse| Sparsity effect       | Sparse algorithm advantage
-Supercond       | Real dense scale      | Computational efficiency
-MovieLens       | Production scenario   | Generalization ability
-```
 
-**Key Finding**: Different algorithms dominate different datasets
-- **GD**: Works everywhere (stable baseline)
-- **L-BFGS**: Best on dense (fastest wall-clock time)
-- **ALS**: Best on sparse (native missing data handling)
+## Four supported data settings
 
----
+| Dataset | Matrix shape | Observation setting | Main evaluation target |
+|---|---|---|---|
+| **Synthetic dense** | 500 × 200 | Fully observed, known rank-5 signal | Recovery of the clean matrix |
+| **Synthetic sparse** | 500 × 200 | Approximately 20% observed | Recovery from incomplete entries |
+| **MovieLens 100K** | 943 × 1,682 | Sparse user–item ratings | Train and held-out RMSE |
+| **Superconductivity** | 21,263 × 81 | Standardized real-valued features | Relative reconstruction error |
 
-## Five Core Experiments
+The code supports all four settings. The highlighted method-comparison CSV contains the two synthetic settings; the committed rank-sweep CSV contains synthetic dense and MovieLens runs. Local datasets and newly generated output are excluded from Git.
 
-| Exp | Name | Varies | Metrics | Question |
-|-----|------|--------|---------|----------|
-| 1 | Method Comparison | Algorithm | Time, iterations, error | Which algorithm for each dataset? |
-| 2 | Initialization | Init type & seed | Convergence across seeds | How critical is initialization? |
-| 3 | Rank Selection | Rank | Error vs rank | Underfitting vs overfitting? |
-| 4 | Regularization | λ | Error vs λ | How to tune regularization? |
-| 5 | Landscape | Multiple seeds | Objective along interpolation | How many local minima? |
+## Quick start
 
----
+Use Python **3.10 or newer**. The synthetic example needs no dataset download.
 
-## File Organization
-
-### Core Implementation
-| File | Purpose |
-|------|---------|
-| `data.py` | Load synthetic (dense & sparse), superconductivity, MovieLens |
-| `objectives.py` | Objective function, gradients, problem representations (dense & sparse) |
-| `methods.py` | GD, L-BFGS, ALS implementations with history tracking |
-
-### Experiments & Visualization
-| File | Purpose |
-|------|---------|
-| `experiments.py` | Five experiment runners, initialization strategies, result aggregation |
-| `plotting.py` | Convergence plots, sensitivity curves, landscape visualization |
-
-### Entry Points
-| File | Purpose |
-|------|---------|
-| `main.py` | CLI orchestrator (quick/full modes, configurable datasets) |
-
-### Documentation
-| File | Purpose |
-|------|---------|
-| `README.md` | This file - project overview & quick start |
-| `FAQ.md` | Comprehensive Q&A on theory, algorithms, implementation details |
-
----
-
-## Quick Start
-
-### 1. Synthetic Test (Fast)
 ```bash
+git clone https://github.com/niccChen/math347.git
+cd math347
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install numpy scipy pandas matplotlib
+
 python main.py --mode quick
 ```
-- Tests on smaller synthetic data (120 × 80)
-- Runs Experiment 1 only
-- ~30 seconds
 
-### 2. Full Synthetic Suite (Recommended First)
-```bash
-python main.py --mode full --skip-real
-```
-- Runs all 5 experiments on synthetic dense + synthetic sparse
-- No external data required
-- ~5-10 minutes
+The quick run checks selected analytical-gradient coordinates, compares the three optimizers on a 120 × 80 synthetic matrix, and writes figures and a summary CSV.
 
-### 3. With Superconductivity
-```bash
-# From local CSV
-python main.py --mode full --superconductivity-path /path/to/superconductivity.csv
-
-# Or automatic UCI fetch (requires ucimlrepo)
-pip install ucimlrepo
-python main.py --mode full
+```text
+figures/quick/                     Convergence plots
+results/quick/experiment_1_summary.csv
 ```
 
-### 4. With MovieLens
-```bash
-# From extracted ml-100k/ directory
-python main.py --mode full --include-movielens --movielens-path /path/to/ml-100k
+### Run the synthetic study
 
-# Or from u.data file
-python main.py --mode full --include-movielens --movielens-path /path/to/u.data
+```bash
+python main.py --mode full --skip-real \
+  --output-dir figures/my-run \
+  --results-dir results/my-run \
+  --seed 0
 ```
 
-### 5. Full Comparison (All Four Datasets)
+<details>
+<summary><strong>Use the real datasets</strong></summary>
+
+For superconductivity, supply a local CSV. If it is unavailable locally, the loader can try the optional `ucimlrepo` package.
+
+```bash
+python main.py --mode full \
+  --superconductivity-path /path/to/superconductivity.csv
+```
+
+For MovieLens, point to an extracted `ml-100k/` directory or a `u.data` file. The loader supports the standard split files or a seeded split from raw ratings.
+
+```bash
+python main.py --mode full --skip-real \
+  --include-movielens --movielens-path /path/to/ml-100k
+```
+
+To include both real datasets:
+
 ```bash
 python main.py --mode full \
   --superconductivity-path /path/to/superconductivity.csv \
   --include-movielens --movielens-path /path/to/ml-100k
 ```
 
----
+See [`data.py`](data.py) for preprocessing and split behavior. Check terminal messages to confirm which datasets loaded; unavailable real datasets are skipped by the runner.
 
-## Dataset Setup
+</details>
 
-### Superconductivity
+<details>
+<summary><strong>Rebuild the README visuals from recorded results</strong></summary>
 
-The loader checks in order:
-1. Path via `--superconductivity-path`
-2. Local `data/superconductivity.csv`
-3. Automatic UCI fetch (requires `pip install ucimlrepo`)
-
-**CSV Format**: Numeric table with either:
-- All numeric columns, or
-- Final target column (auto-dropped)
-
-### MovieLens 100K
-
-The loader accepts:
-- Extracted `ml-100k/` directory with standard splits (`u1.base`, `u1.test`)
-- Direct path to `u.data` file (auto-splits 80/20)
-- Paths to individual split files (`u1.base`, `u1.test`)
-
-**For sparse optimization**: Algorithms optimize only over observed entries and report train/test RMSE instead of dense reconstruction error.
-
----
-
-## Output Structure
-
-```
-figures/
-├── experiment_1/           # Method comparison convergence plots
-│   ├── synthetic/
-│   ├── synthetic_sparse/
-│   ├── superconductivity/
-│   └── movielens_100k/
-├── experiment_2/           # Initialization sensitivity boxplots
-├── experiment_3/           # Rank selection curves
-├── experiment_4/           # Regularization sensitivity
-└── experiment_5/           # Optimization landscape interpolation
-
-results/
-├── experiment_1_summary.csv
-├── experiment_2_summary.csv
-├── experiment_3_summary.csv
-├── experiment_4_summary.csv
-└── experiment_5_summary.csv
-```
-
----
-
-## Key Results & Insights
-
-### Finding 1: Nonconvexity is Manageable
-Despite non-convex problem, all three methods converge reliably to similar-quality solutions when properly initialized.
-
-### Finding 2: Initialization Dominates Algorithm Choice
-SVD initialization achieves 5-10× faster convergence than random initialization. **Initialization quality > algorithm choice** for solution quality.
-
-### Finding 3: Algorithm-Data Fit Matters
-- **Dense**: L-BFGS dominates (fewer iterations)
-- **Sparse**: ALS dominates (natural sparse handling)
-- **Anywhere**: GD provides stable baseline
-
-### Finding 4: Rank Selection is Critical
-- **Underestimating rank**: Underfitting bias dominates
-- **Overestimating rank**: Overfitting risk (especially sparse data)
-- **Optimal rank**: Matches intrinsic signal dimension
-
-### Finding 5: Regularization Balances Fit & Stability
-- **For MovieLens**: $\lambda \in [0.1, 1.0]$ optimal
-- **For dense data**: Less sensitive to $\lambda$ choice
-- **General principle**: $\lambda$ prevents noise fitting
-
----
-
-## Mathematical Details
-
-### Gradient Formulation (Dense)
-$$\nabla_U f = (UV^T - M)V + \lambda U$$
-$$\nabla_V f = (UV^T - M)^T U + \lambda V$$
-
-### Sparse Gradient (Row-wise ALS)
-Fix $V$, optimize $U$ row by row via ridge regression on observed entries only.
-
-### Convergence Rates
-- **GD**: Linear convergence, $O(mn)$ per iteration
-- **L-BFGS**: Superlinear, $O((m+n)r)$ per iteration, fewer iterations
-- **ALS**: Sublinear per iteration, $O(\text{nnz} \cdot r^2)$, often fewer total iterations on sparse
-
----
-
-## Usage Examples
-
-### Example 1: Compare All Methods on Four Datasets
-See `example_four_datasets.py` (if available) or use:
 ```bash
-python main.py --mode full --include-movielens --superconductivity-path ...
+python docs/build_showcase.py
 ```
 
-### Example 2: Programmatic Access
-```python
-from data import load_synthetic, load_synthetic_sparse
-from experiments import run_experiment_1
-from pathlib import Path
+This reads the committed experiment CSVs and regenerates the banner and two showcase figures. It does not rerun optimization or replace the archived measurements.
 
-# Load datasets
-dense = load_synthetic()
-sparse = load_synthetic_sparse(sparsity=0.8)
+</details>
 
-# Run experiment
-summary = run_experiment_1(
-    datasets=[dense, sparse],
-    output_dir=Path("figures/test"),
-    results_dir=Path("results/test"),
-    rank_map={"synthetic": 5, "synthetic_sparse": 5},
-    lam=1e-2,
-)
+## Code map
 
-print(summary)
-```
-
-### Example 3: Single Algorithm on Sparse Data
-```python
-from data import load_synthetic_sparse
-from methods import als
-import numpy as np
-
-# Load synthetic sparse
-data = load_synthetic_sparse(m=500, n=200, r_true=5, sparsity=0.8)
-
-# Initialize
-m, n = data["shape"]
-u0 = 0.1 * np.random.randn(m, 5)
-v0 = 0.1 * np.random.randn(n, 5)
-
-# Solve with ALS
-history = als(data["problem"], u0, v0, lam=1e-2, max_iter=300)
-
-# Measure recovery
-from objectives import relative_reconstruction_error
-recovery = relative_reconstruction_error(
-    history["U_final"], history["V_final"], data["M_clean"]
-)
-print(f"Recovery error: {recovery:.6f}")
-```
+| File | Responsibility |
+|---|---|
+| [`data.py`](data.py) | Synthetic generators, dataset loading, preprocessing, and splits |
+| [`objectives.py`](objectives.py) | Dense/sparse losses, gradients, packing, and evaluation metrics |
+| [`methods.py`](methods.py) | The three optimization methods and history tracking |
+| [`experiments.py`](experiments.py) | Method, initialization, rank, regularization, and landscape studies |
+| [`plotting.py`](plotting.py) | Experiment figures |
+| [`main.py`](main.py) | Quick/full command-line entry point |
+| [`results/`](results/) | Committed experiment summaries |
+| [`docs/build_showcase.py`](docs/build_showcase.py) | Data-backed README visual generation |
 
 ---
 
-## Documentation
+**MATH 347 · Non-Linear Optimization · Emory University · Spring 2026**  
+Yiyun (Nicole) Chen · Joy Cheng · Sirui Li
 
-- **README.md** (this file): Project overview, datasets, quick start, examples
-- **FAQ.md**: Comprehensive Q&A on theory, algorithms, implementation, troubleshooting
-
----
-
-## Project Citation
-
-If you use this project in research:
-
-```
-@article{LRMF2026,
-  title={Comparative Study of Optimization Algorithms for Regularized Low-Rank Matrix Factorization},
-  author={Chen, Nicole and Cheng, Joy and Li, Michelle},
-  journal={Mathematics 347 Project},
-  year={2026},
-  school={Emory University}
-}
-```
-
----
-
-## References
-
-Key papers on LRMF and optimization:
-- Candès & Recht (2009): Matrix completion via convex optimization
-- Beck & Teboulle (2009): First-order methods for non-smooth optimization
-- Nesterov (2004): Introductory lectures on convex optimization
-- Boyd & Parikh (2011): Proximal algorithms
-- Nocedal & Wright (2006): Numerical optimization
-### Core Implementation
-| File | Purpose |
-|------|---------|
-| `data.py` | Load synthetic (dense & sparse), superconductivity, MovieLens |
-| `objectives.py` | Objective function, gradients, problem representations (dense & sparse) |
-| `methods.py` | GD, L-BFGS, ALS implementations with history tracking |
-
-### Experiments & Visualization
-| File | Purpose |
-|------|---------|
-| `experiments.py` | Five experiment runners, initialization strategies, result aggregation |
-| `plotting.py` | Convergence plots, sensitivity curves, landscape visualization |
-
-### Entry Points
-| File | Purpose |
-|------|---------|
-| `main.py` | CLI orchestrator (quick/full modes, configurable datasets) |
-
-### Documentation
-| File | Purpose |
-|------|---------|
-| `README.md` | This file - project overview & quick start |
-| `FAQ.md` | Comprehensive Q&A on theory, algorithms, implementation details |
-
----
-
-## Quick Start
-
-### 1. Synthetic Test (Fast)
-```bash
-python main.py --mode quick
-```
-- Tests on smaller synthetic data (120 × 80)
-- Runs Experiment 1 only
-- ~30 seconds
-
-### 2. Full Synthetic Suite (Recommended First)
-```bash
-python main.py --mode full --skip-real
-```
-- Runs all 5 experiments on synthetic dense + synthetic sparse
-- No external data required
-- ~5-10 minutes
-
-### 3. With Superconductivity
-```bash
-# From local CSV
-python main.py --mode full --superconductivity-path /path/to/superconductivity.csv
-
-# Or automatic UCI fetch (requires ucimlrepo)
-pip install ucimlrepo
-python main.py --mode full
-```
-
-### 4. With MovieLens
-```bash
-# From extracted ml-100k/ directory
-python main.py --mode full --include-movielens --movielens-path /path/to/ml-100k
-
-# Or from u.data file
-python main.py --mode full --include-movielens --movielens-path /path/to/u.data
-```
-
-### 5. Full Comparison (All Four Datasets)
-```bash
-python main.py --mode full \
-  --superconductivity-path /path/to/superconductivity.csv \
-  --include-movielens --movielens-path /path/to/ml-100k
-```
-
----
-
-## Dataset Setup
-
-### Superconductivity
-
-The loader checks in order:
-1. Path via `--superconductivity-path`
-2. Local `data/superconductivity.csv`
-3. Automatic UCI fetch (requires `pip install ucimlrepo`)
-
-**CSV Format**: Numeric table with either:
-- All numeric columns, or
-- Final target column (auto-dropped)
-
-### MovieLens 100K
-
-The loader accepts:
-- Extracted `ml-100k/` directory with standard splits (`u1.base`, `u1.test`)
-- Direct path to `u.data` file (auto-splits 80/20)
-- Paths to individual split files (`u1.base`, `u1.test`)
-
-**For sparse optimization**: Algorithms optimize only over observed entries and report train/test RMSE instead of dense reconstruction error.
-
----
-
-## Output Structure
-
-```
-figures/
-├── experiment_1/           # Method comparison convergence plots
-│   ├── synthetic/
-│   ├── synthetic_sparse/
-│   ├── superconductivity/
-│   └── movielens_100k/
-├── experiment_2/           # Initialization sensitivity boxplots
-├── experiment_3/           # Rank selection curves
-├── experiment_4/           # Regularization sensitivity
-└── experiment_5/           # Optimization landscape interpolation
-
-results/
-├── experiment_1_summary.csv
-├── experiment_2_summary.csv
-├── experiment_3_summary.csv
-├── experiment_4_summary.csv
-└── experiment_5_summary.csv
-```
-
----
-
-## Key Results & Insights
-
-### Finding 1: Nonconvexity is Manageable
-Despite non-convex problem, all three methods converge reliably to similar-quality solutions when properly initialized.
-
-### Finding 2: Initialization Dominates Algorithm Choice
-SVD initialization achieves 5-10× faster convergence than random initialization. **Initialization quality > algorithm choice** for solution quality.
-
-### Finding 3: Algorithm-Data Fit Matters
-- **Dense**: L-BFGS dominates (fewer iterations)
-- **Sparse**: ALS dominates (natural sparse handling)
-- **Anywhere**: GD provides stable baseline
-
-### Finding 4: Rank Selection is Critical
-- **Underestimating rank**: Underfitting bias dominates
-- **Overestimating rank**: Overfitting risk (especially sparse data)
-- **Optimal rank**: Matches intrinsic signal dimension
-
-### Finding 5: Regularization Balances Fit & Stability
-- **For MovieLens**: $\lambda \in [0.1, 1.0]$ optimal
-- **For dense data**: Less sensitive to $\lambda$ choice
-- **General principle**: $\lambda$ prevents noise fitting
-
----
-
-## Mathematical Details
-
-### Gradient Formulation (Dense)
-$$\nabla_U f = (UV^T - M)V + \lambda U$$
-$$\nabla_V f = (UV^T - M)^T U + \lambda V$$
-
-### Sparse Gradient (Row-wise ALS)
-Fix $V$, optimize $U$ row by row via ridge regression on observed entries only.
-
-### Convergence Rates
-- **GD**: Linear convergence, $O(mn)$ per iteration
-- **L-BFGS**: Superlinear, $O((m+n)r)$ per iteration, fewer iterations
-- **ALS**: Sublinear per iteration, $O(\text{nnz} \cdot r^2)$, often fewer total iterations on sparse
-
----
-
-## Usage Examples
-
-### Example 1: Compare All Methods on Four Datasets
-See `example_four_datasets.py` (if available) or use:
-```bash
-python main.py --mode full --include-movielens --superconductivity-path ...
-```
-
-### Example 2: Programmatic Access
-```python
-from data import load_synthetic, load_synthetic_sparse
-from experiments import run_experiment_1
-from pathlib import Path
-
-# Load datasets
-dense = load_synthetic()
-sparse = load_synthetic_sparse(sparsity=0.8)
-
-# Run experiment
-summary = run_experiment_1(
-    datasets=[dense, sparse],
-    output_dir=Path("figures/test"),
-    results_dir=Path("results/test"),
-    rank_map={"synthetic": 5, "synthetic_sparse": 5},
-    lam=1e-2,
-)
-
-print(summary)
-```
-
-### Example 3: Single Algorithm on Sparse Data
-```python
-from data import load_synthetic_sparse
-from methods import als
-import numpy as np
-
-# Load synthetic sparse
-data = load_synthetic_sparse(m=500, n=200, r_true=5, sparsity=0.8)
-
-# Initialize
-m, n = data["shape"]
-u0 = 0.1 * np.random.randn(m, 5)
-v0 = 0.1 * np.random.randn(n, 5)
-
-# Solve with ALS
-history = als(data["problem"], u0, v0, lam=1e-2, max_iter=300)
-
-# Measure recovery
-from objectives import relative_reconstruction_error
-recovery = relative_reconstruction_error(
-    history["U_final"], history["V_final"], data["M_clean"]
-)
-print(f"Recovery error: {recovery:.6f}")
-```
-
----
-
-## Documentation
-
-- **README.md** (this file): Project overview, datasets, quick start, examples
-- **FAQ.md**: Comprehensive Q&A on theory, algorithms, implementation, troubleshooting
-
----
-
-## Project Citation
-
-If you use this project in research:
-
-```
-@article{LRMF2026,
-  title={Comparative Study of Optimization Algorithms for Regularized Low-Rank Matrix Factorization},
-  author={Chen, Nicole and Cheng, Joy and Li, Michelle},
-  journal={Mathematics 347 Project},
-  year={2026},
-  school={Emory University}
-}
-```
-
----
-
-## References
-
-Key papers on LRMF and optimization:
-- Candès & Recht (2009): Matrix completion via convex optimization
-- Beck & Teboulle (2009): First-order methods for non-smooth optimization
-- Nesterov (2004): Introductory lectures on convex optimization
-- Boyd & Parikh (2011): Proximal algorithms
-- Nocedal & Wright (2006): Numerical optimization
+<sub>RankLab is the project’s display name; the repository remains at `niccChen/math347`.</sub>
