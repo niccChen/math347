@@ -95,7 +95,7 @@ flowchart LR
 | **MovieLens 100K** | 943 × 1,682 | Sparse user–item ratings | Train and held-out RMSE |
 | **Superconductivity** | 21,263 × 81 | Standardized real-valued features | Relative reconstruction error |
 
-The code supports all four settings. The highlighted method-comparison CSV contains the two synthetic settings; the committed rank-sweep CSV contains synthetic dense and MovieLens runs. Local datasets and newly generated output are excluded from Git.
+The code supports all four settings. The highlighted method-comparison CSV contains the two synthetic settings; the committed rank-sweep CSV contains synthetic dense and MovieLens runs. The repository includes sample datasets and archived summaries. Additional untracked data and newly generated output are ignored by default.
 
 ## Quick start
 
@@ -106,7 +106,7 @@ git clone https://github.com/niccChen/math347.git
 cd math347
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install numpy scipy pandas matplotlib
+python -m pip install -r requirements.txt
 
 python main.py --mode quick
 ```
